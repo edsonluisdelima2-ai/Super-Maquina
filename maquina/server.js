@@ -149,6 +149,8 @@ function save(){store.save(state)}
 migrate();
 
 const contentEngine=require('./lib/content-engine').createEngine({root:ROOT,data:DATA,getState:()=>state,save,json,body,send,enc,dec,port:PORT});
+const {createLoginGuard,waitText}=require('./lib/login-guard');
+const loginGuard=createLoginGuard({max:Number(process.env.SMC_LOGIN_MAX||5),windowMs:Number(process.env.SMC_LOGIN_WINDOW_MS||15*60e3),lockMs:Number(process.env.SMC_LOGIN_LOCK_MS||15*60e3)});
 let machineModule=null;
 function machine(){return machineModule||(machineModule=require('./lib/machine').createMachine({getState:()=>state,save,id,clientById,canUse,recordUse,recordProviderCost,generateVerified,promptEngine,workSession,createTextFiles,repairText,normalizedCredits,geminiKeyFor,audit,json,body,produced:PRODUCED,safeName}))}
 
@@ -744,7 +746,7 @@ async function handle(req,res){
 
  if(p==='/api/setup'&&m==='POST'){if(!csrf(req))return json(req,res,403,{error:'Ação recusada.'});if(authConfigured())return json(req,res,409,{error:'Senha administrativa já configurada.'});let b=await body(req);const pass=String(b.password||'');if(pass.length<6)return json(req,res,400,{error:'Use uma senha com pelo menos 6 caracteres.'});setPassword(pass);audit('admin_password_created');const tok=sign({role:'admin',exp:Date.now()+30*24*3600e3});return json(req,res,200,{ok:true},{'Set-Cookie':`smc_s=${encodeURIComponent(tok)}; Max-Age=${30*24*3600}; Path=/; HttpOnly; SameSite=Lax${isHttps(req)?'; Secure':''}`})}
 
- if(p==='/api/login'&&m==='POST'){if(!csrf(req))return json(req,res,403,{error:'Ação recusada.'});if(!authConfigured())return json(req,res,409,{error:'Senha ainda não configurada.',needsSetup:true});let b=await body(req);if(!verifyPassword(String(b.password||''))){audit('login_fail');return json(req,res,401,{error:'Senha incorreta'});}const tok=sign({role:'admin',exp:Date.now()+30*24*3600e3});audit('login_ok');return json(req,res,200,{ok:true},{'Set-Cookie':`smc_s=${encodeURIComponent(tok)}; Max-Age=${30*24*3600}; Path=/; HttpOnly; SameSite=Lax${isHttps(req)?'; Secure':''}`})}
+ if(p==='/api/login'&&m==='POST'){if(!csrf(req))return json(req,res,403,{error:'Ação recusada.'});if(!authConfigured())return json(req,res,409,{error:'Senha ainda não configurada.',needsSetup:true});const gk=String(req.socket.remoteAddress||'?'),gate=loginGuard.check(gk);if(gate.locked){audit('login_blocked');return json(req,res,429,{error:`Muitas tentativas de senha. Por segurança, o acesso está bloqueado. Tente de novo em ${waitText(gate.retryAfter)}.`,retryAfter:gate.retryAfter},{'Retry-After':String(gate.retryAfter)})}let b=await body(req);if(!verifyPassword(String(b.password||''))){const f=loginGuard.fail(gk);audit(f.locked?'login_locked':'login_fail');if(f.locked)return json(req,res,429,{error:`Muitas tentativas de senha. Por segurança, o acesso foi bloqueado. Tente de novo em ${waitText(f.retryAfter)}.`,retryAfter:f.retryAfter},{'Retry-After':String(f.retryAfter)});return json(req,res,401,{error:`Senha incorreta. Restam ${f.remaining} tentativa(s) antes do bloqueio temporário.`});}loginGuard.success(gk);const tok=sign({role:'admin',exp:Date.now()+30*24*3600e3});audit('login_ok');return json(req,res,200,{ok:true},{'Set-Cookie':`smc_s=${encodeURIComponent(tok)}; Max-Age=${30*24*3600}; Path=/; HttpOnly; SameSite=Lax${isHttps(req)?'; Secure':''}`})}
 
  if(p==='/api/logout'&&m==='POST')return json(req,res,200,{ok:true},{'Set-Cookie':'smc_s=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax'});
 

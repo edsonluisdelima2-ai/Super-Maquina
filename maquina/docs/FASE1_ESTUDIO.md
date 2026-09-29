@@ -29,3 +29,25 @@ Regressão: `smoke`, `quick`, `prompt`, `sales`, `ui`, `prompt-ui` e `sales-ui` 
 - Formatos X, Blog, Podcast, YouTube, Vídeo curto, Newsletter e Comunidade não entram na fila (só LinkedIn e Instagram, como na r3); use "Baixar pacote".
 - `tests/regression.js` (compatibilidade com dados de versão anterior) não foi executado por falta de uma instalação anterior com dados.
 - O nome final "Estúdio" e o custo em créditos dos formatos novos são propostas aguardando confirmação.
+
+## Rodada de segurança e teste real (29/09/2026)
+
+### Bloqueio de tentativas de senha (entregue e testado)
+- Novo `lib/login-guard.js`, ligado à rota de login. 5 senhas erradas em 15 minutos bloqueiam o login por 15 minutos; cada novo bloqueio dura o dobro (teto de 24 horas). Durante o bloqueio, nem a senha correta entra.
+- A tela mostra "Restam N tentativas" e, no bloqueio, "Tente de novo em N minuto(s)". O servidor responde 429 com `Retry-After`.
+- Ajustável por variáveis: `SMC_LOGIN_MAX`, `SMC_LOGIN_WINDOW_MS`, `SMC_LOGIN_LOCK_MS`.
+- Limite conhecido: o contador fica em memória. Reiniciar o programa o zera. Quem tem acesso ao computador já poderia redefinir a senha pelo `REDEFINIR_SENHA_ADMIN.bat`, então isso não abre uma porta nova. Se a Máquina for exposta na internet, o contador precisa ser persistido e o endereço de origem precisa vir de um proxy confiável.
+- O teste unitário pegou um defeito meu (o bloqueio progressivo perdia o histórico cedo demais). Foi corrigido antes da entrega.
+- Testes: `node tests/security.js` (unidade + servidor) e `node tests/security-ui.js` (tela de login).
+- Não coberto: a senha mínima continua 6 caracteres na criação; recomenda-se subir para 10 em outra rodada.
+
+### Teste com IA real (NÃO executado por mim)
+Este ambiente não tem chave e a rede da sessão bloqueia OpenRouter e Gemini (erro 403). O teste real precisa rodar no seu computador:
+1. Na pasta da Máquina, defina `OPENROUTER_API_KEY` (obrigatória: o Jev roda na OpenRouter) e, se quiser, `GEMINI_API_KEY`.
+2. Rode `node tests\real-ai.js`. Teto padrão de gasto: US$ 0,10 (`REAL_AI_MAX_USD` altera). `REAL_AI_FULL=1` inclui blog, podcast, YouTube, newsletter e comunidade.
+3. Ele cria uma empresa de teste com o contexto do Núcleo de Líderes, roda 4 etapas, para se passar do teto, e grava o relatório com todos os textos em `tests\out\`.
+4. Etapas: (1) LinkedIn em 2 versões com revisão factual, (2) se a revisão factual pega um número inventado plantado, (3) thread do X com 5 posts, (4) vídeo curto com anti-slop sem copiar a referência.
+5. Checagens automáticas: sem Markdown cru, sem palavras vetadas, sem dica vazada, tamanhos, versões diferentes, formato da revisão. **Elas não julgam qualidade, tom nem voz da marca: leia os textos do relatório.**
+- `REAL_AI_DRY=1 node tests\real-ai.js` ensaia o próprio script com a IA simulada, sem gasto (as checagens de conteúdo reprovam de propósito, porque o texto simulado é genérico).
+- A chave só é lida do ambiente. Não é impressa nem gravada no relatório.
+- Achado de arquitetura: mesmo com chave Gemini, a criação de conteúdo precisa da OpenRouter, porque o Jev (roteamento e validação) roda nela. Sem OpenRouter, a criação cai em "chave não configurada". Isso é comportamento da r3, não desta fase.
