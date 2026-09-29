@@ -74,7 +74,7 @@ const defaults={
 
  },
 
- creditWeights:{post:1,review:1,carousel:3,image:2,script:2,video:8,avatarVideo:12,analysis:4,research:5,pdf:5,ebook:12,campaign:8,slides:8,newsletter:2,multinetwork:4,promptgen:1,promptrun:2,salespage:3},
+ creditWeights:{post:1,review:1,carousel:3,image:2,script:2,video:8,avatarVideo:12,analysis:4,research:5,pdf:5,ebook:12,campaign:8,slides:8,newsletter:2,multinetwork:4,promptgen:1,promptrun:2,x:2,blog:3,podcast:2,youtube:5,community:2,coach:4,cover:1,salespage:3},
 
  modelMatrix:{
 
@@ -149,6 +149,8 @@ function save(){store.save(state)}
 migrate();
 
 const contentEngine=require('./lib/content-engine').createEngine({root:ROOT,data:DATA,getState:()=>state,save,json,body,send,enc,dec,port:PORT});
+let machineModule=null;
+function machine(){return machineModule||(machineModule=require('./lib/machine').createMachine({getState:()=>state,save,id,clientById,canUse,recordUse,recordProviderCost,generateVerified,promptEngine,workSession,createTextFiles,repairText,normalizedCredits,geminiKeyFor,audit,json,body,produced:PRODUCED,safeName}))}
 
 
 
@@ -383,7 +385,7 @@ function quickPrompt(request,nets,format){
  return `PEDIDO DO CLIENTE (é o foco exato do conteúdo): ${request}\n\nCrie uma publicação separada para cada rede abaixo, adaptada ao formato e ao comportamento da rede, sem copiar o mesmo texto entre elas. Use apenas informações aprovadas da empresa; se o pedido citar um produto ou serviço, use os dados dele. Não invente números, resultados nem depoimentos. Não use Markdown, asteriscos nem títulos com #.\n\nFORMATO DE SAÍDA OBRIGATÓRIO: escreva o marcador exato de cada rede em uma linha sozinha e, logo abaixo, o texto pronto para publicar. Não escreva nada fora dos blocos.\n\n${blocks}`;
 }
 function parseNetworkBlocks(text){const out={},re=/\[\[([A-Z]+)\]\]/g,idx=[];let m;while((m=re.exec(String(text||''))))idx.push({k:m[1],s:m.index,e:re.lastIndex});idx.forEach((x,i)=>{out[x.k]=String(text).slice(x.e,i+1<idx.length?idx[i+1].s:undefined).trim()});return out}
-function fakeContent(prompt){if(/\[\[SALESPAGE\]\]/.test(prompt)){const m=String(prompt).match(/PEDIDO DO CLIENTE:\s*(.+)/),t=m?m[1].trim():'sua oferta';return `[[HEADLINE]]\nSaiba como ${t.slice(0,60)} pode funcionar para você\n\n[[SUB]]\nUm caminho simples para entender o que fazer agora e dar o próximo passo com segurança.\n\n[[PROBLEMA]]\nTudo depende de você\nO dia acaba e o importante fica para depois\nVocê sente que poderia estar mais longe\n\n[[BENEFICIOS]]\nClareza sobre o que priorizar\nUm plano simples para executar\nAcompanhamento de quem conhece o assunto\nDecisões com mais segurança\n\n[[COMO]]\nVocê conta a sua situação\nRecebe um caminho claro\nColoca em prática com apoio\n\n[[PARAQUEM]]\nEmpresários que querem mais autonomia\nLíderes que querem decidir melhor\nQuem está pronto para agir\n\n[[FECHAMENTO]]\nSe faz sentido para você, deixe seu contato e eu retorno para conversarmos.\n\n[[CTA]]\nQuero conversar`}if(/\[\[PROMPTGEN\]\]/.test(prompt)){const m=String(prompt).match(/PEDIDO DO CLIENTE:\s*(.+)/);return 'Você é um especialista. Objetivo: '+(m?m[1].trim():'atender o pedido')+'.\nContexto: [DESCREVA SEU SEGMENTO].\nEntregue o resultado no formato pedido e pergunte o que faltar antes de começar.'}if(/\[\[PROMPTRUN\]\]/.test(prompt)){return /PLANILHA/.test(prompt)?'Item;Quantidade;Valor\nExemplo A;1;100\nExemplo B;2;50':'Resultado de teste gerado a partir do prompt, com conteúdo objetivo e útil para homologação.'}if(/FAIL_QC/.test(prompt))return 'Fale comigo para saber mais.';const marks=[...new Set([...String(prompt).matchAll(/\[\[([A-Z]+)\]\]/g)].map(x=>x[1]))];if(marks.length)return marks.map(k=>`[[${k}]]\nPublicação de teste para ${k}, com foco no pedido do cliente e linguagem natural.\n#lideranca #mentoria`).join('\n\n');return 'Conteúdo de teste válido, humano e objetivo para homologação local da Super Máquina.'}
+function fakeContent(prompt){const mf=machine().fake(prompt);if(mf)return mf;if(/\[\[SALESPAGE\]\]/.test(prompt)){const m=String(prompt).match(/PEDIDO DO CLIENTE:\s*(.+)/),t=m?m[1].trim():'sua oferta';return `[[HEADLINE]]\nSaiba como ${t.slice(0,60)} pode funcionar para você\n\n[[SUB]]\nUm caminho simples para entender o que fazer agora e dar o próximo passo com segurança.\n\n[[PROBLEMA]]\nTudo depende de você\nO dia acaba e o importante fica para depois\nVocê sente que poderia estar mais longe\n\n[[BENEFICIOS]]\nClareza sobre o que priorizar\nUm plano simples para executar\nAcompanhamento de quem conhece o assunto\nDecisões com mais segurança\n\n[[COMO]]\nVocê conta a sua situação\nRecebe um caminho claro\nColoca em prática com apoio\n\n[[PARAQUEM]]\nEmpresários que querem mais autonomia\nLíderes que querem decidir melhor\nQuem está pronto para agir\n\n[[FECHAMENTO]]\nSe faz sentido para você, deixe seu contato e eu retorno para conversarmos.\n\n[[CTA]]\nQuero conversar`}if(/\[\[PROMPTGEN\]\]/.test(prompt)){const m=String(prompt).match(/PEDIDO DO CLIENTE:\s*(.+)/);return 'Você é um especialista. Objetivo: '+(m?m[1].trim():'atender o pedido')+'.\nContexto: [DESCREVA SEU SEGMENTO].\nEntregue o resultado no formato pedido e pergunte o que faltar antes de começar.'}if(/\[\[PROMPTRUN\]\]/.test(prompt)){return /PLANILHA/.test(prompt)?'Item;Quantidade;Valor\nExemplo A;1;100\nExemplo B;2;50':'Resultado de teste gerado a partir do prompt, com conteúdo objetivo e útil para homologação.'}if(/FAIL_QC/.test(prompt))return 'Fale comigo para saber mais.';const marks=[...new Set([...String(prompt).matchAll(/\[\[([A-Z]+)\]\]/g)].map(x=>x[1]))];if(marks.length)return marks.map(k=>`[[${k}]]\nPublicação de teste para ${k}, com foco no pedido do cliente e linguagem natural.\n#lideranca #mentoria`).join('\n\n');return 'Conteúdo de teste válido, humano e objetivo para homologação local da Super Máquina.'}
 
 const PROMPT_TARGETS={gemini:'Gemini',chatgpt:'ChatGPT',claude:'Claude',outra:'qualquer IA'};
 const PROMPT_TYPES={imagem:{label:'Imagem ou logomarca',here:false},planilha:{label:'Planilha',here:true},texto:{label:'Texto',here:true},documento:{label:'Documento',here:true},apresentacao:{label:'Apresentação',here:true},video:{label:'Vídeo ou roteiro',here:true},site:{label:'Site ou página',here:false},outro:{label:'Outro',here:true}};
@@ -804,6 +806,7 @@ async function handle(req,res){
 
 
  if(await contentEngine.route(req,res,u))return;
+ if(await machine().route(req,res,u))return;
 
  if(p==='/api/state'&&m==='GET'){const s=publicState();const cid=u.searchParams.get('clientId'),c=clientById(cid);s.dashboard=c?dashboardSummary(c):{};return json(req,res,200,s)}
 

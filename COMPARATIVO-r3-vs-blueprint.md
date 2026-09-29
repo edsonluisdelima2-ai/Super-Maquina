@@ -74,3 +74,13 @@ Cada fase termina com teste automático no estilo de `tests/quick.js` e uma nota
 2. Custo em créditos dos novos formatos e do Coach (a r3 cobra por tipo). Proposta: Coach 4, Blog 3, Podcast 2, X 2, YouTube 5, Capa 1.
 3. Ordem das fases: confirmar ou trocar.
 4. Teste com IA real (Gemini/OpenRouter) custa centavos e precisa da sua autorização.
+
+## 8. Andamento
+| Fase | Estado |
+|---|---|
+| 1. Criar v2 (formulário, 1 a 3 versões, X/Blog/Podcast/YouTube/Comunidade, revisão factual) | **Entregue e testada com IA simulada.** Ver `maquina/docs/FASE1_ESTUDIO.md` |
+| 2. Coach Content | Pendente |
+| 3. Anti-slop ligado à transcrição local + Guia de edição | Campo de anti-slop entregue na fase 1; ligação automática e guia pendentes |
+| 4. Guias / Capa de ebook A/B/C | Pendente |
+| 5. Histórico em listas, Calendário, Dashboard, sino | Pendente |
+| 6. WordPress e Telegram opcionais | Pendente |
