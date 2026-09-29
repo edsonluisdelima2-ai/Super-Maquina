@@ -1,68 +1,116 @@
 # Blueprint — SEGREDOS DA IA · CONTENT MACHINE
 
 Fonte: https://claude.ai/public/artifacts/08786f10-cc4f-4bfa-b4fa-df8a4efc68d5
+Base: prints das abas HOME, CRIAR e COACH (enviados pelo Edson) + captura da página pública.
 
-## 0. Limite desta versão (leia primeiro)
-A página pública só entrega a "moldura" do claude.ai e o **HTML renderizado da tela inicial** (sem login). O código do artefato (JS, estado, prompts, chamadas de API) roda em iframe protegido e **não foi acessível**. Portanto:
-- **[OBSERVADO]** = está literalmente na tela capturada.
-- **[INFERIDO]** = dedução pelos nomes das abas; precisa ser confirmada com o código-fonte.
-Para um blueprint 100% fiel, é preciso o código (ver seção 9).
+Legenda: **[V]** visto nos prints · **[I]** inferido (confirmar com código/prints) · **[?]** desconhecido.
 
-## 1. Identidade [OBSERVADO]
-- Nome: **Segredos da IA — Content Machine**
-- Visual: fundo quase preto `#0a0a0a`, destaque verde-limão `#b8ff1a`; ícone SVG de lupa (círculo + cabo), estética "painel de controle" com títulos em caixa alta.
-- Idioma: português (BR). Tem contador (badge "1") ao lado do nome.
-- Propósito [INFERIDO]: máquina de produção/gestão de conteúdo para o projeto "Segredos da IA" (vídeo curto, carrossel, podcast, news, comunidade).
+## 0. Cobertura
+| Aba | Status |
+|---|---|
+| HOME | [V] completa |
+| CRIAR | [V] completa |
+| COACH | [V] aba "Analisar"; aba "Histórico" [?] |
+| GUIAS, EDIÇÃO, HISTÓRICO, CALENDÁRIO, DASHBOARD, BACKUP, APIS | [I] só pelo nome. Faltam prints |
 
-## 2. Navegação [OBSERVADO]
-Menu de 10 abas: **HOME · CRIAR · COACH · GUIAS · EDIÇÃO · HISTÓRICO · CALENDÁRIO · DASHBOARD · BACKUP · APIS**
+O código-fonte (JS, prompts, chamadas de IA) não é acessível pela página pública; tudo abaixo sobre lógica interna é [I].
 
-## 3. Tela HOME — "CENTRO DE COMANDO" [OBSERVADO]
-| Bloco | Conteúdo | Estado vazio |
+## 1. Identidade [V]
+- Nome: **SEGREDOS DA IA · CONTENT MACHINE**.
+- Tema escuro: fundo preto com grade sutil, destaque verde-limão `#b8ff1a`. Títulos em fonte condensada caixa alta (estilo Bebas), corpo/rótulos em monoespaçada.
+- Padrão de título: palavra branca + palavra verde ("CENTRO DE **COMANDO**", "CRIAR **CONTEÚDO**", "COACH **CONTENT**").
+- Cabeçalho: logo (ícone lupa) + nome, **sino de notificações** à direita (badge com contagem, ex.: "1"), menu de 10 abas com ícone; aba ativa = botão verde preenchido.
+- Idioma: PT-BR. Público: uso pessoal do criador (single-user).
+
+## 2. Navegação [V]
+HOME · CRIAR · COACH · GUIAS · EDIÇÃO · HISTÓRICO · CALENDÁRIO · DASHBOARD · BACKUP · APIS
+Fluxo lógico: **Criar/Coach → Edição → Calendário → Histórico/Dashboard**, com Backup e APIs como infraestrutura.
+
+## 3. HOME — "Centro de Comando" [V]
+- Resumo: `N conteúdos ativos · N agendados · N publicados`.
+- **Próximas publicações**: lista de agendados; vazio = "Nada agendado. Agendar no calendário"; link "ver calendário completo →".
+- **Precisa de ação**: pendências; vazio = "Tudo em ordem por aqui." (ícone de check).
+- **Criação rápida**: atalhos Vídeo Curto, Carrossel, Podcast, News, Comunidade + botão destacado "+ VER TODOS" (leva à aba CRIAR).
+
+## 4. CRIAR — "Criar Conteúdo" [V]
+Subtítulo: "Sistema gera 3 variantes anti-padrão e salva tudo automaticamente."
+> Observação: o seletor VARIANTES abre em "1 variante (recomendado)" — o texto fala em 3. Decidir o padrão real.
+
+### 4.1 Formato principal (11 cards, seleção única; padrão = Vídeo Curto)
+| Formato | Descrição no card |
+|---|---|
+| Vídeo Curto | Reels / TikTok / Shorts |
+| Vídeo Repost | Capa overlay sem roteiro |
+| News Diário | Carrossel de notícias RSS |
+| YouTube | Vídeo longo 10–15 min |
+| Carrossel | IG / LinkedIn slides |
+| LinkedIn | Texto + imagem |
+| X / Twitter | "Phoenix 2026" · 5 sub-formatos |
+| Blog | Artigo SEO + HTML |
+| Podcast | Script narrado 3–7 min · novidades IA |
+| Comunidade | Analisa chats + enquetes · gera nutrição |
+| Guias | Ebooks / PDFs · módulo dedicado |
+
+Nota na tela: **YouTube e Blog são gerados separadamente do "Pacote Full"** (mais densos, exigem atenção dedicada) → existe um modo Pacote Full que gera vários formatos de uma vez.
+
+### 4.2 Formulário
+| Campo | Tipo | Regra |
 |---|---|---|
-| Resumo | "N conteúdos ativos · N agendados · N publicados" | 0 · 0 · 0 |
-| PRÓXIMAS PUBLICAÇÕES | lista de itens agendados + link "ver calendário completo →" | "Nada agendado. Agendar no calendário" |
-| PRECISA DE AÇÃO | alertas/pendências | "Tudo em ordem por aqui." |
-| CRIAÇÃO RÁPIDA | atalhos por formato: VÍDEO CURTO, CARROSSEL, PODCAST, NEWS, COMUNIDADE, VER TODOS | — |
+| TEMA * | texto | obrigatório. Ex.: "Anthropic lançou Claude Managed Agents" |
+| CONTEXTO | textarea | notícia/paper/release colado; **se vazio, o sistema busca online** |
+| ASSETS / LINKS DE VÍDEO | textarea (opcional) | um link por linha (YouTube, entrevistas, clips); ficam salvos para baixar e cortar na edição |
+| ÂNGULO | texto (opcional) | ex.: "Visão de quem vende B2B" |
+| OBJETIVO | select | padrão "Viralização máxima" (demais opções [?]) |
+| VARIANTES | select | padrão "1 variante (recomendado)" (outras [?], provavelmente 2–3) |
+| TOM EXTRA | texto | ex.: "Mais provocador" |
+| REMODELAGEM ANTI-SLOP | textarea + botão **ABRIR WHISPER** | cola transcrição de vídeo viral; "sistema estuda estrutura sem copiar". Whisper = atalho/ferramenta externa de transcrição |
+| ☐ GERAR GUIA DE EDIÇÃO | checkbox | cortes, sons, legendas e biblioteca de Final Cut amarrados às falas. Desligado = só roteiro, mais rápido. O guia aparece na aba EDIÇÃO |
+| ☐ REVISÃO FACTUAL | checkbox | 2ª passada que confere fatos. Com material colado → compara contra ele; sem material → detecta nomes/números possivelmente inventados e generaliza. Recomendado sempre que o tema for factual (empresas, produtos, notícias) |
+| **GERAR E SALVAR** | botão primário | dispara geração e grava no Histórico |
 
-## 4. Modelo de dados [INFERIDO]
+### 4.3 Pipeline de geração [I]
+1. Validar TEMA. 2. Se CONTEXTO vazio → pesquisa web/RSS. 3. Se houver ANTI-SLOP → extrair estrutura (ritmo, gancho, arco) sem copiar texto. 4. Gerar N variantes anti-padrão conforme formato + objetivo + ângulo + tom. 5. Se REVISÃO FACTUAL → 2º prompt de checagem. 6. Se GUIA DE EDIÇÃO → 3º prompt (marcações de corte/som/legenda, biblioteca Final Cut). 7. Salvar tudo (auto), atualizar contadores da Home, notificar (sino).
+
+## 5. COACH — "Coach Content" [V]
+Descrição: cola conteúdo bruto (ideia, rascunho, transcrição, print) + links das fontes; "o estrategista sênior acessa as fontes, confirma os dados e devolve direção tática pronta pra executar."
+- Sub-abas: **ANALISAR** | **HISTÓRICO** (das análises).
+- Campo CONTEÚDO BRUTO (textarea, contador de palavras, placeholder com exemplo de vídeo sobre agente de IA no WhatsApp), botão **ANALISAR CONTEÚDO**.
+- Saída [I]: diagnóstico + direção tática (ajustes de gancho, ângulo, dados verificados a partir dos links, próximos passos), salva no Histórico do Coach. Possivelmente com botão "enviar para CRIAR".
+
+## 6. Abas ainda não vistas [I]
+- **GUIAS**: módulo dedicado a Ebooks/PDFs (o card "Guias" em CRIAR diz "módulo dedicado") + provável biblioteca de playbooks.
+- **EDIÇÃO**: exibe o Guia de Edição gerado (cortes, sons, legendas, biblioteca Final Cut casada com as falas) e os assets/links salvos para baixar e cortar.
+- **HISTÓRICO**: todos os conteúdos gerados (variantes), busca/filtro por formato/status, reabrir, duplicar, agendar.
+- **CALENDÁRIO**: agendamento; alimenta "Próximas publicações" e o contador de agendados.
+- **DASHBOARD**: produção por formato, publicados vs agendados, cadência.
+- **BACKUP**: exportar/importar JSON (estado local).
+- **APIS**: chaves de provedores de IA/busca/transcrição e integrações (RSS, Whisper etc.).
+
+## 7. Modelo de dados [I]
 ```
-Conteudo { id, formato(video_curto|carrossel|podcast|news|comunidade),
-           titulo, roteiro/copy, status(rascunho|ativo|agendado|publicado),
-           canal, dataAgendada, dataPublicada, versoes[], metricas{}, criadoEm }
-Config   { apis{chaves/provedores}, preferencias, marca }
-Backup   { exportJSON, importJSON, dataUltimoBackup }
+Conteudo   { id, formato, tema, contexto, assets[], angulo, objetivo, tomExtra,
+             antiSlopRef, flags{guiaEdicao, revisaoFactual},
+             variantes[{texto, roteiro, legenda...}], guiaEdicao?, revisao?,
+             status(rascunho|ativo|agendado|publicado), dataAgendada, dataPublicada,
+             criadoEm, pacoteFullId? }
+AnaliseCoach { id, conteudoBruto, links[], resultado, criadoEm }
+Notificacao  { id, texto, lida, criadoEm }
+Config       { apiKeys{}, biblioteca FinalCut, preferencias }
 ```
-Derivados do resumo da Home: ativos = status≠publicado; agendados = tem dataAgendada futura; publicados = status publicado. "Precisa de ação" = regras (ex.: agendado vencido, rascunho parado, API sem chave).
+Derivados: ativos, agendados, publicados (Home); "precisa de ação" = regras (agendamento vencido, rascunho parado, API sem chave, backup antigo).
 
-## 5. Módulos por aba [INFERIDO]
-1. **HOME** — painel acima.
-2. **CRIAR** — gerador por formato (seletor de formato → briefing → geração via LLM → salvar como conteúdo). Espelha a "Criação rápida".
-3. **COACH** — assistente/mentor de conteúdo (chat com LLM para ideias, feedback, estratégia).
-4. **GUIAS** — biblioteca de guias/playbooks estáticos (tom de voz, estruturas de roteiro, boas práticas por formato).
-5. **EDIÇÃO** — editor/refino de um conteúdo existente (reescrever, encurtar, adaptar de formato).
-6. **HISTÓRICO** — lista de tudo que foi criado, com busca/filtro/reabrir/duplicar.
-7. **CALENDÁRIO** — visão mensal/semanal de agendamentos; alimenta "Próximas publicações".
-8. **DASHBOARD** — métricas: produção por formato, taxa de publicação, cadência.
-9. **BACKUP** — exportar/importar dados (JSON), pois o estado é local.
-10. **APIS** — cadastro de chaves/provedores de IA e integrações.
+## 8. Arquitetura provável [I]
+- Artefato do Claude (SPA, uma página), roteamento por abas em estado.
+- Persistência local (localStorage/IndexedDB) → por isso existe BACKUP.
+- Geração por LLM (chamada do artefato ao Claude ou chaves em APIS); busca online e leitura de links exigem ferramenta de web/RSS.
+- Publicação provavelmente só registra/agenda; não posta nas redes.
 
-## 6. Arquitetura provável [INFERIDO]
-- Artefato **single-file HTML/React** rodando no sandbox do Claude, SPA com roteamento por abas em estado local.
-- Persistência: localStorage/IndexedDB (por isso existe a aba BACKUP) — sem servidor.
-- IA: aba APIS sugere chaves do próprio usuário chamadas direto do navegador, ou a capacidade "perguntar ao Claude" do artefato.
-- Publicação: provavelmente só **agenda/registra** (não posta) — a menos que APIS integre redes.
+## 9. Riscos e melhorias
+1. Inconsistência "3 variantes" (subtítulo) × "1 variante" (padrão).
+2. Dados só no navegador → lembrete automático de backup em "Precisa de ação".
+3. Chaves de API no cliente: não compartilhar o artefato com chaves salvas.
+4. Revisão factual desligada por padrão, mas recomendada para notícias → considerar ligar automaticamente para formatos factuais (News, LinkedIn, X, Blog, YouTube).
+5. Pacote Full sem card próprio nos prints → conferir onde é acionado.
 
-## 7. Fluxos principais [INFERIDO]
-Criar (rápido ou aba CRIAR) → gerar → editar → salvar → agendar no calendário → aparece na Home → marcar publicado → alimenta Dashboard/Histórico → Backup periódico.
-
-## 8. Riscos / pontos de atenção
-- Dados só no navegador: perda ao limpar cache → backup obrigatório e lembrete em "Precisa de ação".
-- Chaves de API no cliente ficam expostas ao próprio usuário/extensões; não compartilhar o artefato com chaves salvas.
-- O artefato exige login no Claude para usar (confirmado na página).
-
-## 9. Como completar até ficar 100% fiel
-Qualquer uma destas opções:
-1. Abrir o artefato logado → menu do artefato → copiar o código e colar aqui (ou salvar como arquivo no repositório).
-2. Colar prints/descrição de cada aba (CRIAR, COACH, GUIAS, EDIÇÃO etc.).
-Com isso eu refaço as seções 4–7 sem "[INFERIDO]" (campos reais, prompts, componentes, estados, integrações) e, se quiser, reconstruo o app como projeto.
+## 10. Para fechar 100%
+Faltam prints (ou o código) de: **Guias, Edição, Histórico, Calendário, Dashboard, Backup, APIs**, do sub-menu **Histórico do Coach**, das opções dos selects **Objetivo/Variantes**, e do resultado de uma geração e de uma análise do Coach. Com isso removo todos os [I]/[?].
