@@ -104,6 +104,27 @@ function buildPrompt(def, f) {
   return lines.join('\n\n');
 }
 
+/* O que o validador (Jev) enxerga: o pedido em linguagem limpa e as versões sem marcadores técnicos. */
+function judgePrompt(def, f) {
+  const sub = def.subformats ? (def.subformats[f.subformato] || def.subformats.thread) : '';
+  return [
+    `Pedido: ${f.tema}`,
+    `Formato: ${def.label}. ${def.rules}${sub ? ' Subformato: ' + sub : ''}`,
+    `Objetivo: ${OBJETIVOS[f.objetivo]}`,
+    f.contexto ? `Material de apoio fornecido pelo cliente (fonte permitida para fatos):\n${f.contexto}` : 'Não há material de apoio: fatos específicos, números e nomes não sustentados pelas informações aprovadas da empresa não são permitidos.',
+    f.angulo ? `Ângulo: ${f.angulo}` : '',
+    f.tomExtra ? `Tom extra: ${f.tomExtra}` : '',
+    'Regras: português do Brasil, linguagem natural, sem Markdown, sem inventar números, casos ou depoimentos, sem preços.',
+    f.variantes > 1 ? `O rascunho traz ${f.variantes} versões alternativas separadas por "---". Cada uma deve cumprir o pedido.` : ''
+  ].filter(Boolean).join('\n');
+}
+function judgeText(text, n) {
+  const blocks = parseBlocks(text);
+  const parts = LETTERS.slice(0, n).map(l => stripHint(blocks[`VARIANTE${l}`] || '')).filter(Boolean);
+  if (!parts.length) return String(text || '').replace(/\[\[[A-Z]+\]\]/g, '').trim();
+  return parts.length > 1 ? parts.map((p, i) => `VERSÃO ${i + 1}\n${p}`).join('\n\n---\n\n') : parts[0];
+}
+
 function parseBlocks(text) {
   const out = {}, re = /\[\[([A-Z]+)\]\]/g, idx = [];
   let m;
@@ -209,6 +230,7 @@ function createMachine(d) {
       const prompt = buildPrompt(def, f);
       const out = await generateVerified(c, {
         kind: def.contentKind, goal: tema, prompt,
+        judge: { prompt: judgePrompt(def, f), text: t => judgeText(t, f.variantes) },
         models: (st.modelMatrix[c.plan] || st.modelMatrix.economico).text,
         maxTokens: def.tokens * (f.variantes > 1 ? 1 + 0.6 * (f.variantes - 1) : 1) | 0
       });
@@ -260,7 +282,9 @@ function createMachine(d) {
     } catch (e) {
       if (e.providerCost) recordProviderCost(c, def.contentKind, e.providerCost, e.model, 'failed', { reason: e.message });
       audit('machine_error', e.message);
-      return json(req, res, e.code === 'NO_KEY' ? 400 : 502, { error: e.message, chargedInternal: false });
+      const payload = { error: e.message, chargedInternal: false };
+      if (process.env.SMC_DEBUG === '1' && e.debug) payload.debug = e.debug;
+      return json(req, res, e.code === 'NO_KEY' ? 400 : 502, payload);
     } finally { unlock(c); }
   }
 
@@ -317,4 +341,4 @@ function createMachine(d) {
   return { route, fake, kinds: KINDS };
 }
 
-module.exports = { createMachine, buildPrompt, parseBlocks, parseReview, blogHtml, KINDS, OBJETIVOS };
+module.exports = { createMachine, judgePrompt, judgeText, buildPrompt, parseBlocks, parseReview, blogHtml, KINDS, OBJETIVOS };

@@ -44,7 +44,7 @@ function record(name, r, extra = '') {
   report.push(`## ${name}\nCusto desta etapa: US$ ${Number(r.d.costUsd || 0).toFixed(5)} · acumulado: US$ ${spent.toFixed(5)}\n${extra}`);
 }
 (async () => {
-  const srv = spawn(process.execPath, ['server.js'], { env: { ...process.env, PORT: String(PORT), SMC_DATA_DIR: DATA, BASE_URL: BASE }, stdio: ['ignore', 'pipe', 'pipe'] });
+  const srv = spawn(process.execPath, ['server.js'], { env: { ...process.env, PORT: String(PORT), SMC_DATA_DIR: DATA, BASE_URL: BASE, SMC_DEBUG: '1' }, stdio: ['ignore', 'pipe', 'pipe'] });
   let log = ''; srv.stdout.on('data', x => log += x); srv.stderr.on('data', x => log += x);
   try {
     for (let i = 0; i < 50; i++) { try { if ((await fetch(BASE + '/api/me')).ok) break; } catch {} await new Promise(r => setTimeout(r, 200)); }

@@ -51,3 +51,19 @@ Este ambiente não tem chave e a rede da sessão bloqueia OpenRouter e Gemini (e
 - `REAL_AI_DRY=1 node tests\real-ai.js` ensaia o próprio script com a IA simulada, sem gasto (as checagens de conteúdo reprovam de propósito, porque o texto simulado é genérico).
 - A chave só é lida do ambiente. Não é impressa nem gravada no relatório.
 - Achado de arquitetura: mesmo com chave Gemini, a criação de conteúdo precisa da OpenRouter, porque o Jev (roteamento e validação) roda nela. Sem OpenRouter, a criação cai em "chave não configurada". Isso é comportamento da r3, não desta fase.
+
+### Primeira rodada real (29/09/2026): 3 de 4 etapas falharam, e o que mudou
+Resultado do usuário com chave OpenRouter válida: (1) LinkedIn e (3) X falharam com "O motor respondeu sem conteúdo utilizável"; (4) vídeo curto falhou com "O conteúdo precisa de uma camada mais forte ... aderência ao briefing, estilo e naturalidade". A etapa 2 dependia da 1. Isso mostrou que a fase 1 **não estava pronta para uso real**, apesar de passar com a IA simulada.
+
+Causas prováveis (hipóteses, ainda não confirmadas com dados reais):
+1. **Resposta vazia do modelo.** O modelo padrão (Qwen 3.5) às vezes devolve conteúdo vazio, provavelmente porque o raciocínio interno consome o limite de tokens. Isso já existia no motor da r3.
+2. **Validador (Jev) recebia texto sujo.** O rascunho e o pedido enviados ao Jev traziam marcadores técnicos do Estúdio (`[[VARIANTEA]]`, "(Versão A...)", instruções de formato), o que pode derrubar as notas de "briefing" e "estilo".
+3. **Sem segunda chance.** Clientes novos nascem com "fallback pago" desligado (comportamento de segurança da r3). Quando o Jev reprova, não há nova tentativa e o pedido falha.
+
+Mudanças:
+- `callChat` (motor): se a resposta vier vazia, tenta de novo uma vez no mesmo modelo com o raciocínio interno desligado e 50% mais tokens. A falha vazia fica registrada como custo de falha e na auditoria (`chat_empty`). A mensagem de erro agora informa modelo, motivo do término e tamanho do raciocínio.
+- `generateVerified`: parâmetro opcional `judge` para o validador ver o pedido limpo e as versões sem marcadores (o Estúdio passa `judgePrompt` e `judgeText`). O fluxo antigo (Criar, Prompt, Página de venda) não usa o parâmetro e não muda.
+- Diagnóstico: com `SMC_DEBUG=1` (o `tests/real-ai.js` já liga), uma falha devolve o rascunho e as notas do Jev no relatório. Sem essa variável nada disso aparece.
+- Testes novos: resposta vazia com nova tentativa, e a IA simulada do Jev agora **reprova** rascunho com marcadores técnicos, o que prova que o validador recebe texto limpo.
+
+**Ainda não sabemos** se essas correções bastam com a IA real. Falta rodar `node tests\real-ai.js` de novo com a versão atualizada. Chamadas que falharam podem ter cobrado centavos na OpenRouter, mesmo com o relatório mostrando US$ 0 (o total do relatório só soma etapas que deram certo).

@@ -480,7 +480,7 @@ function keyFor(c){return dec(c?.ai?.keyEnc)||dec(state.settings.openrouterKeyEn
 
 function mgmtKeyFor(c){return dec(c?.ai?.mgmtKeyEnc)||keyFor(c)}
 
-async function openrouter(c,pathname,opts={}){if(process.env.SMC_FAKE_OPENROUTER==='1'){if(pathname==='/chat/completions'){const req=JSON.parse(opts.body||'{}'),prompt=String(req.messages?.at(-1)?.content||'');const content=fakeContent(prompt);return{choices:[{message:{content}}],usage:{cost:0.002,input_tokens:100,output_tokens:40}}}throw new Error('Rota fake não implementada.')}const key=keyFor(c);if(!key)throw Object.assign(new Error('Chave OpenRouter não configurada para esta empresa.'),{code:'NO_KEY'});const r=await fetch('https://openrouter.ai/api/v1'+pathname,{...opts,headers:{Authorization:'Bearer '+key,'Content-Type':'application/json','HTTP-Referer':BASE_URL,'X-OpenRouter-Title':state.settings.platformName,...(opts.headers||{})}});const t=await r.text();let d;try{d=JSON.parse(t)}catch{d={raw:t}};if(!r.ok)throw Object.assign(new Error(d?.error?.message||d?.message||`OpenRouter ${r.status}`),{provider:d,status:r.status});return d}
+async function openrouter(c,pathname,opts={}){if(process.env.SMC_FAKE_OPENROUTER==='1'){if(pathname==='/chat/completions'){const req=JSON.parse(opts.body||'{}'),prompt=String(req.messages?.at(-1)?.content||'');if(/FORCAR_VAZIO/.test(prompt)&&!req.reasoning)return{choices:[{message:{content:''},finish_reason:'length'}],usage:{cost:0.001,completion_tokens:2500}};const content=fakeContent(prompt);return{choices:[{message:{content}}],usage:{cost:0.002,input_tokens:100,output_tokens:40}}}throw new Error('Rota fake não implementada.')}const key=keyFor(c);if(!key)throw Object.assign(new Error('Chave OpenRouter não configurada para esta empresa.'),{code:'NO_KEY'});const r=await fetch('https://openrouter.ai/api/v1'+pathname,{...opts,headers:{Authorization:'Bearer '+key,'Content-Type':'application/json','HTTP-Referer':BASE_URL,'X-OpenRouter-Title':state.settings.platformName,...(opts.headers||{})}});const t=await r.text();let d;try{d=JSON.parse(t)}catch{d={raw:t}};if(!r.ok)throw Object.assign(new Error(d?.error?.message||d?.message||`OpenRouter ${r.status}`),{provider:d,status:r.status});return d}
 
 async function openrouterDecision(c,payload){
 
@@ -492,7 +492,8 @@ async function openrouterDecision(c,payload){
 
   if(payload.questions?.requires_external_facts)answers.requires_external_facts={type:'noul',noul:.05};
 
-  if(payload.questions?.briefing_respected)answers.briefing_respected={type:'noul',noul:.97};
+  const dirty=/\[\[VARIANTE|\(Versão [A-C]|ESTÚDIO DE CONTEÚDO/.test(String(payload.state?.draft||'')+String(payload.state?.user_prompt||''));
+  if(payload.questions?.briefing_respected)answers.briefing_respected={type:'noul',noul:dirty?.1:.97};
 
   if(payload.questions?.unsupported_specific_claims)answers.unsupported_specific_claims={type:'noul',noul:.02};
 
@@ -514,7 +515,7 @@ async function openrouterDecision(c,payload){
 
 function extractText(message){if(!message)return'';if(typeof message.content==='string')return message.content.trim();if(Array.isArray(message.content))return message.content.map(x=>typeof x==='string'?x:(x&&typeof x.text==='string'?x.text:'')).join('\n').trim();return''}
 
-async function callChat(c,models,messages,max_tokens=2500){let last;for(const model of models){try{const d=await openrouter(c,'/chat/completions',{method:'POST',body:JSON.stringify({model,messages,max_tokens,temperature:.55})});const text=extractText(d?.choices?.[0]?.message),cost=Number(d?.usage?.cost||0);if(!text){last=Object.assign(new Error(`O motor respondeu sem conteúdo utilizável.`),{providerCost:cost,model});recordProviderCost(c,'unknown',cost,model,'failed',{reason:'empty'});continue}return{d,model,text,cost}}catch(e){last=e}}throw last||new Error('Falha de IA')}
+async function callChat(c,models,messages,max_tokens=2500){let last;for(const model of models){for(const attempt of [0,1]){try{const req={model,messages,max_tokens:attempt?Math.round(max_tokens*1.5):max_tokens,temperature:.55};if(attempt)req.reasoning={enabled:false};const d=await openrouter(c,'/chat/completions',{method:'POST',body:JSON.stringify(req)});const ch=d?.choices?.[0],text=extractText(ch?.message),cost=Number(d?.usage?.cost||0);if(!text){const debug={model,attempt:attempt+1,finishReason:ch?.finish_reason||'',completionTokens:d?.usage?.completion_tokens??null,reasoningChars:String(ch?.message?.reasoning||'').length};last=Object.assign(new Error(`O motor respondeu sem conteúdo utilizável (modelo ${model}, término: ${debug.finishReason||'?'}, raciocínio interno: ${debug.reasoningChars} caracteres).`),{providerCost:cost,model,debug});recordProviderCost(c,'unknown',cost,model,'failed',{reason:'empty',attempt:attempt+1,finishReason:debug.finishReason});audit('chat_empty',JSON.stringify(debug));continue}return{d,model,text,cost}}catch(e){last=e;break}}}throw last||new Error('Falha de IA')}
 
 function uniqueModels(models){return [...new Set((models||[]).filter(Boolean))]}
 
@@ -572,7 +573,7 @@ async function jevValidate(c,{kind,prompt,text,phase='validate'}){
 
 function jevIssueLabels(v){const c=v?.checks||{},x=[];if(c.briefing<JEV_MIN_COMPLIANCE)x.push('aderência ao briefing');if(c.unsupported>JEV_MAX_UNSUPPORTED)x.push('afirmações não sustentadas');if(c.format<JEV_MIN_COMPLIANCE)x.push('formato solicitado');if(c.style<JEV_MIN_COMPLIANCE)x.push('estilo e naturalidade');return x}
 
-async function generateVerified(c,{kind,goal='',prompt,models,maxTokens=2500}){
+async function generateVerified(c,{kind,goal='',prompt,models,maxTokens=2500,judge=null}){
 
  let route;try{route=await jevRoute(c,{kind,goal,prompt})}catch(e){audit('jev_route_fallback',e.message);route={engine:'fallback',class:'avancado',confidence:0,cost:0,error:e.message}}
 
@@ -590,17 +591,17 @@ async function generateVerified(c,{kind,goal='',prompt,models,maxTokens=2500}){
 
  let txt=repairText(out.text,prompt),issues=qualityCheck(txt,prompt);if(issues.length)throw new Error('O conteúdo não passou pelo controle de qualidade: '+issues.join(', ')+'. Nenhum crédito interno foi consumido.');
 
- let validation;try{validation=await jevValidate(c,{kind,prompt,text:txt})}catch(e){audit('jev_validation_fallback',e.message);validation={engine:'fallback',approved:true,cost:0,error:e.message,checks:{}}}totalCost+=Number(validation.cost||0);
+ let validation;try{validation=await jevValidate(c,{kind,prompt:judge?.prompt||prompt,text:judge?.text?judge.text(txt):txt})}catch(e){audit('jev_validation_fallback',e.message);validation={engine:'fallback',approved:true,cost:0,error:e.message,checks:{}}}totalCost+=Number(validation.cost||0);
 
  if(!validation.approved){
 
-  const strongest=available[0],canEscalate=strongest&&(!usedGemini||strongest!==out.model);if(!canEscalate||c.ai?.zeroMode||c.ai?.paidFallbackAuthorized===false)throw Object.assign(new Error('O conteúdo precisa de uma camada mais forte, mas a escalada paga não está autorizada. Problemas: '+jevIssueLabels(validation).join(', ')+'.'),{code:'PAID_ESCALATION_APPROVAL'});
+  const strongest=available[0],canEscalate=strongest&&(!usedGemini||strongest!==out.model);if(!canEscalate||c.ai?.zeroMode||c.ai?.paidFallbackAuthorized===false)throw Object.assign(new Error('O conteúdo precisa de uma camada mais forte, mas a escalada paga não está autorizada. Problemas: '+jevIssueLabels(validation).join(', ')+'.'),{code:'PAID_ESCALATION_APPROVAL',debug:{draft:txt,checks:validation.checks,route:route.class}});
 
   escalated=true;const repair=`${prompt}\n\nRevise completamente o rascunho abaixo. Corrija estes problemas detectados: ${jevIssueLabels(validation).join(', ')}. Não invente informações. Entregue somente a versão final corrigida.\n\nRASCUNHO A REVISAR:\n${txt}`;
 
   out=await callChat(c,[strongest,...available.filter(x=>x!==strongest)],[{role:'system',content:systemPrompt(c,kind,prompt)},{role:'user',content:repair}],maxTokens);recordProviderCost(c,kind,out.cost,out.model,'success',{phase:'generation_escalated'});totalCost+=Number(out.cost||0);txt=repairText(out.text,prompt);issues=qualityCheck(txt,prompt);if(issues.length)throw new Error('A versão escalada não passou pelo controle de qualidade: '+issues.join(', ')+'. Nenhum crédito interno foi consumido.');
 
-  try{validation=await jevValidate(c,{kind,prompt,text:txt,phase:'revalidate'})}catch(e){audit('jev_revalidation_fallback',e.message);validation={engine:'fallback',approved:true,cost:0,error:e.message,checks:{}}}totalCost+=Number(validation.cost||0);if(!validation.approved)throw new Error('A versão escalada continuou reprovada pela validação do Jev: '+jevIssueLabels(validation).join(', ')+'. Nenhum crédito interno foi consumido.');
+  try{validation=await jevValidate(c,{kind,prompt:judge?.prompt||prompt,text:judge?.text?judge.text(txt):txt,phase:'revalidate'})}catch(e){audit('jev_revalidation_fallback',e.message);validation={engine:'fallback',approved:true,cost:0,error:e.message,checks:{}}}totalCost+=Number(validation.cost||0);if(!validation.approved)throw new Error('A versão escalada continuou reprovada pela validação do Jev: '+jevIssueLabels(validation).join(', ')+'. Nenhum crédito interno foi consumido.');
 
  }
 

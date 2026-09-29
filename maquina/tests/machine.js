@@ -13,6 +13,20 @@ async function api(url, opt = {}) {
   let d = {}; try { d = await r.json(); } catch {}
   return { status: r.status, d };
 }
+// ---- unidade: o que o validador enxerga não pode ter marcadores técnicos
+(function judgeUnit() {
+  const { judgePrompt, judgeText, KINDS } = require('../lib/machine');
+  const f = { tema: 'delegar sem perder o controle', contexto: '', angulo: '', tomExtra: '', objetivo: 'autoridade', variantes: 3, subformato: 'thread' };
+  const jp = judgePrompt(KINDS.linkedin, f);
+  assert.ok(!/\[\[|ESTÚDIO|FORMATO DE SAÍDA/.test(jp), 'pedido do validador sem instruções internas');
+  assert.match(jp, /3 versões alternativas/);
+  const raw = '[[VARIANTEA]]\n(Versão A. Abordagem direta)\nTexto A completo aqui.\n\n[[VARIANTEB]]\nTexto B completo aqui.\n\n[[VARIANTEC]]\nTexto C completo aqui.';
+  const jt = judgeText(raw, 3);
+  assert.ok(!/\[\[|\(Versão/.test(jt), 'rascunho do validador sem marcadores'); assert.match(jt, /VERSÃO 1\nTexto A[\s\S]*---[\s\S]*VERSÃO 3\nTexto C/);
+  assert.equal(judgeText('[[VARIANTEA]]\nSó uma versão.', 1), 'Só uma versão.');
+  assert.equal(judgeText('Texto sem marcador [[X]]', 1), 'Texto sem marcador');
+})();
+
 (async () => {
   const srv = spawn(process.execPath, ['server.js'], { env: { ...process.env, PORT: String(PORT), SMC_DATA_DIR: DATA, SMC_FAKE_OPENROUTER: '1', BASE_URL: BASE }, stdio: ['ignore', 'pipe', 'pipe'] });
   let log = ''; srv.stdout.on('data', x => log += x); srv.stderr.on('data', x => log += x);
@@ -34,6 +48,12 @@ async function api(url, opt = {}) {
     r = await api('/api/machine/create', { method: 'POST', body: { clientId: cid, kind: 'inexistente', tema: 'liderança sem centralização' } }); assert.equal(r.status, 400);
     r = await api('/api/machine/create', { method: 'POST', body: { clientId: cid, kind: 'x', tema: 'oi' } }); assert.equal(r.status, 400);
     r = await api('/api/machine/create', { method: 'POST', body: { clientId: 'nao', kind: 'x', tema: 'liderança sem centralização' } }); assert.equal(r.status, 404);
+
+    // 2b. resposta vazia do modelo: a Máquina tenta de novo sem o raciocínio interno e entrega o texto
+    r = await api('/api/machine/create', { method: 'POST', body: { clientId: cid, kind: 'linkedin', tema: 'assunto FORCAR_VAZIO da empresa hoje', factual: false } });
+    assert.equal(r.status, 200, 'retry após resposta vazia: ' + JSON.stringify(r.d)); assert.ok(r.d.items[0].text.length > 20);
+    r = await api('/api/costs?clientId=' + cid); assert.equal(r.status, 200); assert.ok(r.d.byKind.unknown > 0, 'a tentativa vazia foi registrada como custo de falha');
+    r = await api('/api/state?clientId=' + cid); assert.equal(r.d.audit.filter(a => a.type === 'chat_empty').length, 1, 'resposta vazia registrada na auditoria');
 
     // 3. todos os formatos geram e salvam
     for (const k of ids) {
