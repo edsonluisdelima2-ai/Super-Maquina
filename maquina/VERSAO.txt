@@ -1,0 +1,4 @@
+0.5.0 Lite — teste controlado
+Editor de Vídeo com motor de transcrição instalado sob demanda. Esta embalagem não inclui o modelo local de transcrição: a própria aplicação o instala quando solicitado no Editor de Vídeo.
+
+Pendências de validação antes de produção: comparação de qualidade em vídeo real, revisão persistente de transcrição, revisão completa de cortes, importação e saldo.

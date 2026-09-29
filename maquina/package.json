@@ -1,0 +1,13 @@
+{
+  "name": "super-maquina-conteudo-lab",
+  "version": "0.5.0",
+  "private": true,
+  "description": "Super Máquina de Conteúdo v0.5.0 - Editor de Vídeo, Gêmeo Digital em preparação, Max, Jev, Gemini e OpenRouter",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node tests/smoke.js"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

@@ -1,0 +1,22 @@
+SUPER MÁQUINA DE CONTEÚDO v0.4.0 COMPLETA
+
+Este pacote é uma instalação completa para Windows.
+Não sobrescreva sua instalação anterior sem criar um backup.
+
+COMECE POR:
+INICIAR_MAQUINA.bat
+
+PRINCIPAIS NOVIDADES:
+- Nova Home como Central do Dia
+- Comando principal em linguagem natural; Enter envia e Shift+Enter quebra linha
+- Max preservado como o robozinho aprovado, com estados Neutro, Pensando e Falando
+- Histórico persistente com Fixar, Renomear, Arquivar e Apagar
+- Fontes de notícias aprovadas pelo cliente e leitura de RSS/Atom oficial
+- Newsletter e conteúdo multicanal a partir de notícia aprovada
+- Seletor de ferramentas sob demanda
+- Gemini guiado pelo Max, com Free Tier, alertas e Modo Custo Zero
+- Jev mantido como camada de decisão e validação
+- OpenRouter mantida como camada de modelos e fallback autorizado
+- Conector Local Windows com ações permitidas, sem terminal irrestrito
+
+A v0.2.3 deve permanecer guardada como ponto de retorno.

@@ -1,0 +1,5 @@
+CORREÇÃO IMPORTANTE v0.2.2
+
+A v0.2.1 podia iniciar o servidor, mas o navegador baixava um arquivo chamado "download" em vez de abrir a interface.
+Causa confirmada: index.html, app.js e styles.css eram entregues com MIME application/octet-stream.
+A v0.2.2 corrige os tipos MIME e abre a interface normalmente no navegador.

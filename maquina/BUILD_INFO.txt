@@ -1,0 +1,31 @@
+SUPER MÁQUINA DE CONTEÚDO v0.4.0
+Build: 2026-09-27
+Base preservada: v0.3.0 completa
+Banco: SQLite local
+Node.js: 22+
+
+TESTES:
+SMOKE OK v0.4.0
+- Jev roteamento e validação
+- Gemini configurável
+- Histórico persistente
+- Fontes aprovadas
+- Interpretação de comandos
+- Conector Local (whitelist)
+- Leads/CSV/WhatsApp 1:1
+- QR
+- Geração e QC
+- PPTX
+- Backup/restauração
+- FFmpeg + Faster-Whisper portátil + modelo local
+- Transcrição JSON/MD/TXT e reutilização por hash
+- Corte vertical, legenda, capa e streaming parcial
+- Biblioteca, relocalização, DNA vivo e atribuição comercial
+- Migração dos dados do Núcleo sem perda
+
+MAX:
+- public/assets/max/max-neutro.png
+- public/assets/max/max-pensando.png
+- public/assets/max/max-falando.png
+As três imagens derivam diretamente da arte aprovada pelo usuário.
+

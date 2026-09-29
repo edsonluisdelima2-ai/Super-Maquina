@@ -1,0 +1,19 @@
+SUPER MÁQUINA DE CONTEÚDO v0.4.0 - COMO COMEÇAR
+
+1. Extraia a pasta completa em um local definitivo.
+2. Execute INICIAR_MAQUINA.bat.
+3. Use Node.js 22 ou superior.
+4. Abra http://localhost:3080.
+5. No primeiro acesso, crie a senha administrativa.
+6. Em Configurações, conecte OpenRouter e, se quiser, Gemini.
+7. O Max conduz cada integração passo a passo.
+8. A Home passa a ser sua Central do Dia.
+
+ATALHOS:
+Enter = enviar/executar comando.
+Shift + Enter = nova linha.
+
+CUSTO:
+Modo Custo Zero impede fallback pago.
+Gemini gratuito pode ser usado na camada econômica quando configurado.
+A Super Máquina não muda o Gemini de gratuito para pago sem autorização registrada.
