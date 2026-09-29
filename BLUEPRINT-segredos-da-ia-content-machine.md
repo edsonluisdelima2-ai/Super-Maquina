@@ -74,6 +74,8 @@ Nota na tela: **YouTube e Blog são gerados separadamente do "Pacote Full"** (ma
 | ☐ REVISÃO FACTUAL | checkbox | 2ª passada que confere fatos. Com material colado → compara contra ele; sem material → detecta nomes/números possivelmente inventados e generaliza. Recomendado sempre que o tema for factual (empresas, produtos, notícias) |
 | **GERAR E SALVAR** | botão primário | dispara geração e grava no Histórico |
 
+**Campos condicionais por formato [V]:** em outro print da mesma tela (formato não-vídeo selecionado) **não aparecem** "Assets / links de vídeo" nem "Gerar guia de edição" — só Tema, Contexto, Ângulo, Objetivo, Variantes, Tom extra, Anti-slop e Revisão factual. Ou seja: assets e guia de edição são exclusivos de **Vídeo Curto** e **YouTube** (coerente com a aba Edição). O rótulo do seletor Variantes também muda: "1 variante" (sem "(recomendado)") nesse caso. Opções dos selects Objetivo/Variantes continuam [?].
+
 ### 4.3 Pipeline de geração [I]
 1. Validar TEMA. 2. Se CONTEXTO vazio → pesquisa web/RSS. 3. Se houver ANTI-SLOP → extrair estrutura (ritmo, gancho, arco) sem copiar texto. 4. Gerar N variantes anti-padrão conforme formato + objetivo + ângulo + tom. 5. Se REVISÃO FACTUAL → 2º prompt de checagem. 6. Se GUIA DE EDIÇÃO → 3º prompt (marcações de corte/som/legenda, biblioteca Final Cut). 7. Salvar tudo (auto), atualizar contadores da Home, notificar (sino).
 
