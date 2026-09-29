@@ -14,7 +14,10 @@ Legenda: **[V]** visto nos prints · **[I]** inferido (confirmar com código/pri
 | GUIAS | [V] sub-aba "Capa" completa; sub-aba "Criar Ebook" [?] |
 | EDIÇÃO | [V] estado vazio; tela com guia gerado [?] |
 | HISTÓRICO | [V] estado vazio (layout completo); card de conteúdo [?] |
-| CALENDÁRIO, DASHBOARD, BACKUP, APIS | [I] só pelo nome. Faltam prints |
+| CALENDÁRIO | [V] grade mensal vazia + legenda; card de item [?] |
+| BACKUP | [V] completa |
+| APIS | [V] parcial: seções Vídeo·Voz, Publicação, Infra·Dados; seções acima e "Capacidades" cortadas [?] |
+| DASHBOARD | [I] só pelo nome. Falta print |
 
 Pista técnica [V]: o título da aba do navegador é **`maquina-virais-ib.jsx`** → o artefato é **um único arquivo React (JSX)**. O código-fonte (prompts, chamadas de IA) não é acessível pela página pública; lógica interna é [I].
 
@@ -117,13 +120,54 @@ Layout de duas colunas.
 - Área principal: título da lista, "N resultados · status: ativos", botão **+ NOVO CONTEÚDO**; vazio = "Nenhum conteúdo aqui ainda." + **CRIAR PRIMEIRO**.
 - Observações: não há lista para Vídeo Repost, News Diário nem Guias (podem cair em outra lista); o status "ativos/postados/arquivados" reforça o ciclo de vida do conteúdo. Card de item, ações (abrir, duplicar, agendar, arquivar, marcar postado) [I].
 
-## 9. Abas ainda não vistas [I]
-- **CALENDÁRIO**: agendamento; alimenta "Próximas publicações" e o contador de agendados.
-- **DASHBOARD**: produção por formato, publicados vs agendados, cadência.
-- **BACKUP**: exportar/importar JSON (estado local).
-- **APIS**: chaves de provedores de IA/busca/transcrição e integrações (RSS, Whisper etc.).
+## 9. CALENDÁRIO — "Calendário Editorial" [V]
+- Navegação de mês (‹ SETEMBRO 2026 ›), grade Dom–Sáb, dia atual destacado (verde, selo "HOJE").
+- Filtros: **REDE** (Todas…) e **STATUS** (Todos…). Contador: "N publicação(ões) · N agendadas · N publicadas".
+- Legenda: **barra neon à esquerda = publicado · sem barra = agendado · clique no item para ver detalhes e métricas**.
+- Itens (chips por dia, com rede/formato) [I]; painel de detalhes com métricas [I]; agendar arrastando ou por botão [?].
 
-## 10. Modelo de dados [I]
+## 10. BACKUP — "Backup e Recuperação" [V]
+"Garantia de que seu conteúdo nunca se perde. Exporte regularmente."
+- **Banner de alerta "STORAGE EM MODO FALLBACK"**: o storage principal do sandbox falhou, o app usa **localStorage** como fallback automático; mostra o último erro (ex.: `get:user:podcast_sources: Storage get failed: Key not found`). Ou seja: persistência primária = `window.storage` do artefato (chaves tipo `user:...`), secundária = localStorage.
+- **3 cartões:** EM MEMÓRIA (conteúdos · publicações), LOCAL STORAGE (conteúdos · pubs · tamanho KB), AUTO-BACKUP (nº + data/hora do último snapshot).
+- **Exportar backup:** baixa `.json` com TODOS conteúdos, publicações e listas; aviso "Você nunca exportou um backup manualmente. Recomendado fazer agora."; botão **EXPORTAR AGORA**.
+- **Importar backup:** botão **ESCOLHER ARQUIVO .JSON**; itens com o mesmo ID são sobrescritos.
+- **Auto-backup (local):** snapshot completo a cada **5 min** no localStorage; mostra último snapshot; botão **RESTAURAR AUTO-BACKUP**.
+- **Gestão de storage:** limite do storage do artefato não documentado; barra "USO TOTAL: X KB (Y MB)"; botões **VER N CONTEÚDOS** (maiores) e **EXCLUIR TODOS POSTADOS**; alerta de que carrosséis/blogs com imagens pesam e podem travar o carregamento.
+- **"Por que fazer backup regular":** (1) storage principal pode falhar (rate limit, erro, quota); (2) trocar navegador/máquina perde tudo; (3) dados vivem em dois lugares mas ambos no SEU navegador; (4) o .json é a única cópia fora do navegador. Recomendado: exportar 1x/semana e guardar no Drive.
+
+## 11. APIS [V parcial]
+Catálogo de integrações em cards (nome, descrição, provavelmente campo de chave/toggle [?]), agrupadas por categoria com contador. Vistas:
+**VÍDEO · VOZ (5)**
+- Runway Gen-4 — image-to-video 9:16 para reposts/B-rolls.
+- Kling AI — text-to-video com física realista, bom custo.
+- Luma Dream Machine — Ray-2, movimentos de câmera cinematográficos.
+- HeyGen Avatar — avatar falando o roteiro do teleprompter (personas).
+- ElevenLabs TTS — voz PT-BR natural para vídeos sem aparecer (narração do roteiro).
+
+**PUBLICAÇÃO (7)**
+- Meta Graph · IG Carrossel — fluxo atual de carrossel (App PUBLISHER), token de página permanente em `{API_KEY}`.
+- LinkedIn Post — publica o texto direto pelo RenderLinkedIn (já existe fluxo no Make).
+- X · Tweet — OAuth 2.0 user context; threads via reply chain no N8N.
+- TikTok Content API — upload de vídeo via URL; exige app aprovado.
+- YouTube Metadata — atualiza título/descrição gerados; o upload em si vai pelo N8N (resumable).
+- Telegram Bot sendMessage — canais premium (GateKeeper); token no path.
+- WordPress REST Post — o formato BLOG gera `html_completo`; Application Password em base64 `user:pass`.
+
+**INFRA · DADOS (6)**
+- Supabase Insert — espelha conteúdos num Postgres real; caminho da migração futura.
+- Qdrant Upsert Vetor — memória vetorial dos conteúdos (busca semântica de hooks antigos).
+- Apify Run Actor — scraping de redes (Social Stories); token na URL.
+- Make.com Webhook — dispara cenários Make (fluxo LinkedIn existente).
+- N8N Webhook Genérico — **ponte mestra com o N8N na Hetzner; o N8N executa o que o sandbox bloqueia**.
+- Hotmart Vendas — puxa vendas da Segredos da IA para o Dashboard (correlação conteúdo × venda).
+
+Não vistos [?]: categorias acima de "Vídeo · Voz" (provavelmente LLM/texto/imagem/pesquisa) e a seção final **"CAPACIDADES (?)"**.
+
+## 12. DASHBOARD [I]
+Produção por formato, publicados × agendados, cadência semanal, e (via Hotmart) correlação conteúdo × venda; métricas vêm das publicações registradas/integrações.
+
+## 13. Modelo de dados [I]
 ```
 Conteudo   { id, formato, tema, contexto, assets[], angulo, objetivo, tomExtra,
              antiSlopRef, flags{guiaEdicao, revisaoFactual},
@@ -136,22 +180,23 @@ Config       { apiKeys{}, biblioteca FinalCut, preferencias }
 ```
 Derivados: ativos, agendados, publicados (Home); "precisa de ação" = regras (agendamento vencido, rascunho parado, API sem chave, backup antigo).
 
-## 11. Arquitetura provável [I]
+## 14. Arquitetura provável
 - Artefato do Claude **[V] em um único arquivo `maquina-virais-ib.jsx` (React)**, SPA com roteamento por abas em estado; sub-abas em Guias e listas/status em Histórico.
 - A arte da capa/ebook **não é gerada no app**: o app monta o JSON e o usuário gera a imagem no ChatGPT Image 2.0 [V].
-- Persistência local (localStorage/IndexedDB) → por isso existe BACKUP.
+- Persistência **[V]**: `window.storage` do artefato (chaves `user:*`) + localStorage como fallback; auto-backup a cada 5 min; export/import `.json`. Tudo fica no navegador do usuário.
 - Geração por LLM (chamada do artefato ao Claude ou chaves em APIS); busca online e leitura de links exigem ferramenta de web/RSS.
-- Publicação provavelmente só registra/agenda; não posta nas redes.
+- **[V] O sandbox do artefato bloqueia chamadas externas**; por isso o app foi desenhado para falar com um **N8N próprio (Hetzner)** via webhook, que executa publicação (Meta, LinkedIn, X, TikTok, YouTube, Telegram, WordPress), vídeo/voz, Supabase, Qdrant, Apify, Make e Hotmart. Sem N8N configurado, o app só cria, agenda e registra.
+- Ecossistema pré-existente do autor: Make (LinkedIn), N8N, Hetzner, Hotmart, GateKeeper (Telegram premium), RenderLinkedIn.
 
-## 12. Riscos e melhorias
+## 15. Riscos e melhorias
 1. Inconsistência "3 variantes" (subtítulo) × "1 variante" (padrão).
-2. Dados só no navegador → lembrete automático de backup em "Precisa de ação".
-3. Chaves de API no cliente: não compartilhar o artefato com chaves salvas.
+2. Dados só no navegador (nunca exportou = alerta já existe no Backup) → levar esse alerta para "Precisa de ação" na Home. O banner de fallback aparece mesmo com app vazio (erro `podcast_sources` "Key not found" é leitura de chave inexistente tratada como falha → falso alarme a corrigir: tratar "not found" como vazio).
+3. Tokens (Meta, X, Telegram, Apify, WordPress, N8N) ficam no navegador do cliente; segredos em URL/path (Telegram, Apify) vazam em logs. Preferir guardar tokens só no N8N e o app chamar apenas o webhook. Não compartilhar o artefato com chaves salvas.
 4. Revisão factual desligada por padrão, mas recomendada para notícias → considerar ligar automaticamente para formatos factuais (News, LinkedIn, X, Blog, YouTube).
 5. Pacote Full sem card próprio nos prints → conferir onde é acionado.
 6. Handle `@igorbrasil` fixo na capa e nome do arquivo "ib" sugerem marca pessoal de outro criador/versão; no Núcleo de Líderes trocar por handle próprio (deixar configurável em APIS/Config).
 7. Geração de imagem manual (copiar JSON → ChatGPT → anexar) é o maior atrito; automatizar via API de imagem em APIS.
 8. Histórico não tem lista para Vídeo Repost, News Diário e Guias.
 
-## 13. Para fechar 100%
-Ainda faltam prints (ou o código) de: **Calendário, Dashboard, Backup, APIs**, sub-aba **Criar Ebook**, **Histórico do Coach**, opções dos selects **Objetivo/Variantes**, um **resultado de geração** (card de conteúdo com variantes), um **resultado do Coach**, um **guia de edição gerado** e o **sino de notificações** aberto. Com isso removo todos os [I]/[?].
+## 16. Para fechar 100%
+Ainda faltam prints (ou o código) de: **Dashboard**, **APIs** (topo da página, cards abertos com campos de chave e a seção "Capacidades"), sub-aba **Criar Ebook**, **Histórico do Coach**, opções dos selects **Objetivo/Variantes**, um **resultado de geração** (card de conteúdo com variantes), um **resultado do Coach**, um **guia de edição gerado**, o **sino de notificações** aberto e o **Calendário com itens**. Com isso removo todos os [I]/[?].
