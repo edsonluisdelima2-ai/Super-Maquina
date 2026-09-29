@@ -16,7 +16,7 @@ Legenda: **[V]** visto nos prints · **[I]** inferido (confirmar com código/pri
 | HISTÓRICO | [V] estado vazio (layout completo); card de conteúdo [?] |
 | CALENDÁRIO | [V] grade mensal vazia + legenda; card de item [?] |
 | BACKUP | [V] completa |
-| APIS | [V] parcial: seções Vídeo·Voz, Publicação, Infra·Dados; seções acima e "Capacidades" cortadas [?] |
+| APIS | [V] Vídeo·Voz, Publicação, Infra·Dados, Cadastradas e nota de imagem/vídeo; categorias acima de Vídeo·Voz [?] |
 | DASHBOARD | [I] só pelo nome. Falta print |
 
 Pista técnica [V]: o título da aba do navegador é **`maquina-virais-ib.jsx`** → o artefato é **um único arquivo React (JSX)**. O código-fonte (prompts, chamadas de IA) não é acessível pela página pública; lógica interna é [I].
@@ -136,7 +136,7 @@ Layout de duas colunas.
 - **Gestão de storage:** limite do storage do artefato não documentado; barra "USO TOTAL: X KB (Y MB)"; botões **VER N CONTEÚDOS** (maiores) e **EXCLUIR TODOS POSTADOS**; alerta de que carrosséis/blogs com imagens pesam e podem travar o carregamento.
 - **"Por que fazer backup regular":** (1) storage principal pode falhar (rate limit, erro, quota); (2) trocar navegador/máquina perde tudo; (3) dados vivem em dois lugares mas ambos no SEU navegador; (4) o .json é a única cópia fora do navegador. Recomendado: exportar 1x/semana e guardar no Drive.
 
-## 11. APIS [V parcial]
+## 11. APIS [V]
 Catálogo de integrações em cards (nome, descrição, provavelmente campo de chave/toggle [?]), agrupadas por categoria com contador. Vistas:
 **VÍDEO · VOZ (5)**
 - Runway Gen-4 — image-to-video 9:16 para reposts/B-rolls.
@@ -162,7 +162,13 @@ Catálogo de integrações em cards (nome, descrição, provavelmente campo de c
 - N8N Webhook Genérico — **ponte mestra com o N8N na Hetzner; o N8N executa o que o sandbox bloqueia**.
 - Hotmart Vendas — puxa vendas da Segredos da IA para o Dashboard (correlação conteúdo × venda).
 
-Não vistos [?]: categorias acima de "Vídeo · Voz" (provavelmente LLM/texto/imagem/pesquisa) e a seção final **"CAPACIDADES (?)"**.
+Os cards funcionam como **presets**: o usuário adiciona um preset e ele passa para a lista abaixo.
+
+**CADASTRADAS (N) [V]** — integrações já adicionadas; vazio = "Nenhuma integração ainda. Adiciona de um preset acima."
+
+**Nota "Sobre geração de imagem e vídeo" [V]:** OAuth (xAI/OpenAI) exige backend para troca de tokens e redirect URI estável, impossível dentro do artefato. Fluxo viável hoje: (1) o app gera o `prompt_arte` JSON (já faz — ver Guias/Capa), (2) o payload da tela leva o prompt ao N8N, (3) o N8N chama xAI/OpenAI/Nvidia e devolve a mídia para o Drive ou Cloudinary. **Após a migração para Vercel, a chamada vira direta e o resultado aparece dentro do app.**
+
+Não visto [?]: categorias acima de "Vídeo · Voz" (provavelmente LLM/texto/imagem/pesquisa; a nota cita xAI, OpenAI e Nvidia).
 
 ## 12. DASHBOARD [I]
 Produção por formato, publicados × agendados, cadência semanal, e (via Hotmart) correlação conteúdo × venda; métricas vêm das publicações registradas/integrações.
@@ -186,6 +192,7 @@ Derivados: ativos, agendados, publicados (Home); "precisa de ação" = regras (a
 - Persistência **[V]**: `window.storage` do artefato (chaves `user:*`) + localStorage como fallback; auto-backup a cada 5 min; export/import `.json`. Tudo fica no navegador do usuário.
 - Geração por LLM (chamada do artefato ao Claude ou chaves em APIS); busca online e leitura de links exigem ferramenta de web/RSS.
 - **[V] O sandbox do artefato bloqueia chamadas externas**; por isso o app foi desenhado para falar com um **N8N próprio (Hetzner)** via webhook, que executa publicação (Meta, LinkedIn, X, TikTok, YouTube, Telegram, WordPress), vídeo/voz, Supabase, Qdrant, Apify, Make e Hotmart. Sem N8N configurado, o app só cria, agenda e registra.
+- **[V] Roadmap declarado:** migração do app para **Vercel** (backend próprio) → chamadas diretas a APIs/OAuth e mídia gerada exibida dentro do app; Supabase é o "caminho da migração" de dados. Hoje a mídia sai via N8N para Drive/Cloudinary.
 - Ecossistema pré-existente do autor: Make (LinkedIn), N8N, Hetzner, Hotmart, GateKeeper (Telegram premium), RenderLinkedIn.
 
 ## 15. Riscos e melhorias
@@ -199,4 +206,4 @@ Derivados: ativos, agendados, publicados (Home); "precisa de ação" = regras (a
 8. Histórico não tem lista para Vídeo Repost, News Diário e Guias.
 
 ## 16. Para fechar 100%
-Ainda faltam prints (ou o código) de: **Dashboard**, **APIs** (topo da página, cards abertos com campos de chave e a seção "Capacidades"), sub-aba **Criar Ebook**, **Histórico do Coach**, opções dos selects **Objetivo/Variantes**, um **resultado de geração** (card de conteúdo com variantes), um **resultado do Coach**, um **guia de edição gerado**, o **sino de notificações** aberto e o **Calendário com itens**. Com isso removo todos os [I]/[?].
+Ainda faltam prints (ou o código) de: **Dashboard**, **APIs** (topo da página com as categorias acima de Vídeo·Voz e um preset aberto com seus campos), sub-aba **Criar Ebook**, **Histórico do Coach**, opções dos selects **Objetivo/Variantes**, um **resultado de geração** (card de conteúdo com variantes), um **resultado do Coach**, um **guia de edição gerado**, o **sino de notificações** aberto e o **Calendário com itens**. Com isso removo todos os [I]/[?].
