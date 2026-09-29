@@ -83,6 +83,30 @@ const marker = l => `[[VARIANTE${l}]]`;
 const reviewMarker = l => `[[REVISAO${l}]]`;
 const variantOf = it => (it.machine && it.machine.variant) || 'A';
 
+/* Palavras vetadas: vêm das restrições da empresa (texto livre) e do campo do pedido.
+   O modelo pequeno ignora "não use", então a Máquina confere no código e reescreve só o que for preciso. */
+function parseVetadas(txt) {
+  const out = new Set(), t = String(txt || '');
+  const res = [
+    /(?:n[aã]o|nunca)\s+us\w+\s+(?:as\s+|os\s+)?(?:palavras?|termos?|express\w+)\s*:?\s*([^.\n]+)/gi,
+    /(?:palavras?|termos?|express\w+)\s+(?:vetad\w+|proibid\w+)\s*:?\s*([^.\n]+)/gi,
+    /nunca\s+usar\s*:\s*([^.\n]+)/gi
+  ];
+  for (const re of res) {
+    let m;
+    while ((m = re.exec(t))) {
+      for (let w of m[1].split(/[,;]|\s+e\s+|\s+ou\s+/)) {
+        w = w.replace(/["“”'‘’()]/g, '').trim().toLowerCase();
+        if (w.length >= 3 && w.length <= 30 && w.split(/\s+/).length <= 3) out.add(w);
+      }
+    }
+  }
+  return [...out];
+}
+const escRe = w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const vetRegex = w => new RegExp(`(?<![\\p{L}\\p{N}])${escRe(w)}(?:s|es|mente)?(?![\\p{L}\\p{N}])`, 'iu');
+const findVetadas = (text, words) => words.filter(w => vetRegex(w).test(text));
+
 function buildPrompt(def, f) {
   const n = f.variantes;
   const sub = def.subformats ? (def.subformats[f.subformato] || def.subformats.thread) : '';
@@ -97,6 +121,7 @@ function buildPrompt(def, f) {
     f.tomExtra ? `TOM EXTRA: ${f.tomExtra}` : '',
     f.estrutura ? `ESTRUTURA DE REFERÊNCIA (estude o ritmo e o arco, sem copiar frases nem ideias específicas do original):\n${f.estrutura}` : '',
     `FORMATO (${def.label}): ${def.rules}${sub ? ' Subformato: ' + sub : ''}`,
+    f.vetadas && f.vetadas.length ? `PALAVRAS QUE NÃO PODEM APARECER EM NENHUM TRECHO (nem no plural): ${f.vetadas.join(', ')}. Use outras palavras.` : '',
     `Crie ${n} ${n === 1 ? 'versão' : 'versões'} ${n === 1 ? '' : 'claramente diferentes na abordagem, e não apenas reescritas. '}${NO_MARKDOWN} Não invente números, resultados, casos nem depoimentos. Não cite preços, prazos ou garantias que não estejam nas informações aprovadas.`
   ].filter(Boolean);
   const blocks = LETTERS.slice(0, n).map(l => `${marker(l)}\n(Versão ${l}${n > 1 ? '. ' + VARIANT_HINTS[l] : ''})`).join('\n\n');
@@ -114,6 +139,7 @@ function judgePrompt(def, f) {
     f.contexto ? `Material de apoio fornecido pelo cliente (fonte permitida para fatos):\n${f.contexto}` : 'Não há material de apoio: fatos específicos, números e nomes não sustentados pelas informações aprovadas da empresa não são permitidos.',
     f.angulo ? `Ângulo: ${f.angulo}` : '',
     f.tomExtra ? `Tom extra: ${f.tomExtra}` : '',
+    'Os rótulos de estrutura pedidos no formato (por exemplo "Gancho (0 a 3 s):", "Cena 1:", "Slide 2:", "Legenda:", "Assunto:", "Subtítulo:") e as sugestões visuais entre parênteses fazem parte do formato pedido. Não são marcação técnica nem linguagem de chatbot.',
     'Regras: português do Brasil, linguagem natural, sem Markdown, sem inventar números, casos ou depoimentos, sem preços.',
     f.variantes > 1 ? `O rascunho traz ${f.variantes} versões alternativas separadas por "---". Cada uma deve cumprir o pedido.` : ''
   ].filter(Boolean).join('\n');
@@ -199,6 +225,39 @@ function createMachine(d) {
     return out;
   }
 
+  /* Confere as palavras vetadas no código. Se aparecerem, pede uma reescrita mínima e confere de novo. */
+  async function enforceVetadas(c, def, items, words, warnings) {
+    const bad = items.filter(it => findVetadas(it.text, words).length);
+    if (!bad.length) return;
+    const parts = bad.map(it => `[[VARIANTE${variantOf(it)}]]\n${it.text}`).join('\n\n');
+    const prompt = `ESTÚDIO DE CONTEÚDO — reescrita — formato: ${Object.keys(KINDS).find(k => KINDS[k] === def)}\nReescreva cada versão abaixo trocando apenas o necessário para eliminar estas palavras, inclusive no plural: ${words.join(', ')}. Mantenha o sentido, o tamanho, a estrutura, os rótulos e o tom. Não acrescente informações. ${NO_MARKDOWN}\nFORMATO DE SAÍDA OBRIGATÓRIO: o marcador exato de cada versão em uma linha sozinha e, logo abaixo, o texto reescrito.\n\n${parts}`;
+    let blocks = {};
+    try {
+      const out = await promptEngine(c, 'review', 'Você reescreve textos em português do Brasil com mudanças mínimas, sem inventar informações.', prompt, def.tokens);
+      blocks = parseBlocks(out.text);
+    } catch (e) {
+      if (e.providerCost) recordProviderCost(c, 'review', e.providerCost, e.model, 'failed', { reason: e.message });
+      audit('machine_vetadas_error', e.message);
+    }
+    for (const it of bad) {
+      const before = findVetadas(it.text, words);
+      const rewritten = repairText(stripHint(blocks[`VARIANTE${variantOf(it)}`] || ''), '');
+      if (rewritten.length >= it.text.length * 0.6 && !findVetadas(rewritten, words).length) {
+        it.text = rewritten; it.updatedAt = new Date().toISOString();
+        it.files = createTextFiles(it);
+        if (def.html) {
+          const dir = path.join(produced, it.id), fn = safeName(it.title) + '.html';
+          fs.writeFileSync(path.join(dir, fn), blogHtml(it.text, it.goal)); it.files.html = `/files/${it.id}/${fn}`;
+        }
+        it.machine.reescritaVetadas = before;
+      } else {
+        warnings.push(`Versão ${variantOf(it)}: ainda contém ${before.map(w => '“' + w + '”').join(', ')}. Troque à mão antes de aprovar.`);
+        it.machine.vetadasRestantes = before;
+      }
+    }
+    save();
+  }
+
   async function create(req, res) {
     const b = await body(req), c = clientById(b.clientId);
     if (!c) return json(req, res, 404, { error: 'Empresa não encontrada' });
@@ -219,6 +278,11 @@ function createMachine(d) {
       variantes: Math.min(3, Math.max(1, parseInt(b.variantes, 10) || 1)),
       subformato: def.subformats && def.subformats[b.subformato] ? b.subformato : 'thread'
     };
+    f.vetadas = [...new Set([
+      ...parseVetadas(c.context && c.context.restricoes),
+      ...parseVetadas(c.companyDna && c.companyDna.status === 'Aprovado' && c.companyDna.data && c.companyDna.data.restricoes),
+      ...String(b.vetadas || '').split(/[,;\n]/).map(w => w.trim().toLowerCase()).filter(w => w.length >= 3 && w.length <= 30)
+    ])].slice(0, 30);
     const factual = b.factual !== false;
     const cap = canUse(c, def.contentKind);
     if (!cap.ok) return json(req, res, 409, { error: cap.error });
@@ -228,12 +292,24 @@ function createMachine(d) {
       lock(c);
       const st = state();
       const prompt = buildPrompt(def, f);
-      const out = await generateVerified(c, {
-        kind: def.contentKind, goal: tema, prompt,
-        judge: { prompt: judgePrompt(def, f), text: t => judgeText(t, f.variantes) },
-        models: (st.modelMatrix[c.plan] || st.modelMatrix.economico).text,
-        maxTokens: def.tokens * (f.variantes > 1 ? 1 + 0.6 * (f.variantes - 1) : 1) | 0
-      });
+      let out, flag = null;
+      try {
+        out = await generateVerified(c, {
+          kind: def.contentKind, goal: tema, prompt,
+          judge: { prompt: judgePrompt(def, f), text: t => judgeText(t, f.variantes) },
+          models: (st.modelMatrix[c.plan] || st.modelMatrix.economico).text,
+          maxTokens: def.tokens * (f.variantes > 1 ? 1 + 0.6 * (f.variantes - 1) : 1) | 0
+        });
+      } catch (e) {
+        /* O validador reprovou e a escalada paga não está autorizada. Em vez de perder o texto que já foi
+           pago, entrega como rascunho sinalizado. Nada é publicado sem a sua aprovação. */
+        if (e.code === 'PAID_ESCALATION_APPROVAL' && e.debug && e.debug.draft) {
+          flag = { issues: e.debug.issues || [], checks: e.debug.checks || {} };
+          out = { text: e.debug.draft, model: e.debug.model || '', provider: e.debug.provider || 'openrouter', usage: e.debug.usage || {},
+            totalCost: Number(e.debug.cost || 0), route: { engine: 'jev', class: e.debug.route || '', confidence: 0 }, validation: { approved: false, checks: flag.checks }, escalated: false };
+          audit('machine_flagged_draft', flag.issues.join(', '));
+        } else throw e;
+      }
       const blocks = parseBlocks(out.text), groupId = id('grp'), items = [], warnings = [];
       const perCost = Number(out.totalCost || 0) / f.variantes;
       for (const l of LETTERS.slice(0, f.variantes)) {
@@ -245,7 +321,7 @@ function createMachine(d) {
         const ct = {
           id: id('cnt'), clientId: c.id, kind: def.contentKind, network: def.network, groupId,
           title: `${def.label}${f.variantes > 1 ? ' ' + l : ''}: ${tema.slice(0, 60)}`, goal: tema, prompt: tema, text, status: 'Rascunho',
-          quality: { status: 'aprovado', issues: [], jev: out.validation },
+          quality: flag ? { status: 'atencao', issues: flag.issues, jev: { checks: flag.checks } } : { status: 'aprovado', issues: [], jev: out.validation },
           routing: { engine: out.route.engine, class: out.route.class, confidence: out.route.confidence, requiresExternalFacts: out.route.requiresExternalFacts, escalated: out.escalated },
           model: 'motor interno', providerModel: out.model, provider: out.provider || 'openrouter', costUsd: perCost, usage: out.usage || {},
           image: null, trackLinkId: '', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), files: {},
@@ -261,6 +337,8 @@ function createMachine(d) {
         st.contents.push(ct);
         items.push(ct);
       }
+      if (flag) warnings.push(`O validador automático apontou: ${flag.issues.join(', ')}. Os textos foram salvos como rascunho. Leia com atenção e edite antes de aprovar.`);
+      if (f.vetadas.length) await enforceVetadas(c, def, items, f.vetadas, warnings);
       if (!items.length) throw new Error('A IA não devolveu as versões. Reformule o pedido e tente de novo. Nenhum crédito interno foi consumido.');
       workSession(c, { title: `${def.label}: ${tema}`.slice(0, 80), type: 'studio', relatedType: 'content', relatedId: items[0].id, status: 'Concluído', summary: tema.slice(0, 180) });
       recordUse(c, def.contentKind, out.totalCost, { groupId, machine: true, format: b.kind, variants: items.length, jev: true, route: out.route.class, provider: out.provider || 'openrouter', escalated: out.escalated });
@@ -328,6 +406,10 @@ function createMachine(d) {
       return rev.map(l => `[[REVISAO${l}]]\n${l === 'B' ? 'STATUS: CONFERE' : 'STATUS: ATENCAO\nALERTA: 30% dos empresários | número sem fonte no material | remover o número ou citar a fonte'}`).join('\n\n');
     }
     if (!/ESTÚDIO DE CONTEÚDO/.test(s)) return null;
+    if (/— reescrita —/.test(s)) {
+      const ls2 = [...s.matchAll(/\[\[VARIANTE([A-C])\]\]\n/g)].map(x => x[1]);
+      return ls2.map(l => `[[VARIANTE${l}]]\nTexto reescrito da versão ${l} sem as palavras vetadas, mantendo o sentido e o tom originais.`).join('\n\n');
+    }
     const fmt = (s.match(/formato:\s*([a-z_]+)/) || [])[1] || 'x';
     const ls = [...s.matchAll(/\[\[VARIANTE([A-C])\]\]/g)].map(x => x[1]);
     const sample = l => {
@@ -341,4 +423,4 @@ function createMachine(d) {
   return { route, fake, kinds: KINDS };
 }
 
-module.exports = { createMachine, judgePrompt, judgeText, buildPrompt, parseBlocks, parseReview, blogHtml, KINDS, OBJETIVOS };
+module.exports = { createMachine, parseVetadas, findVetadas, judgePrompt, judgeText, buildPrompt, parseBlocks, parseReview, blogHtml, KINDS, OBJETIVOS };

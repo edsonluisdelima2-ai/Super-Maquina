@@ -26,6 +26,7 @@ async function api(url, opt = {}) {
 }
 const words = t => t.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(Boolean);
 function overlap(a, b, n = 6) { const A = words(a), B = words(b), S = new Set(); for (let i = 0; i + n <= B.length; i++) S.add(B.slice(i, i + n).join(' ')); for (let i = 0; i + n <= A.length; i++) if (S.has(A.slice(i, i + n).join(' '))) return true; return false; }
+const meta = it => `Validador: ${it.quality && it.quality.status === 'atencao' ? 'PEDIU ATENÇÃO (' + (it.quality.issues || []).join(', ') + ' · notas ' + JSON.stringify((it.quality.jev || {}).checks || {}) + ')' : 'aprovado'}. Palavras vetadas reescritas: ${(it.machine.reescritaVetadas || []).join(', ') || 'nenhuma'}. Ainda vetadas: ${(it.machine.vetadasRestantes || []).join(', ') || 'nenhuma'}.`;
 function textChecks(t) {
   const c = [];
   c.push(['sem Markdown cru', !/[*`]|^\s*#/m.test(t)]);
@@ -72,7 +73,7 @@ function record(name, r, extra = '') {
       checks.push(['versões diferentes entre si', !overlap(its[0].text, its[1].text, 8)]);
       checks.push(['tamanho do LinkedIn entre 300 e 1500 caracteres', its.every(x => x.text.length >= 300 && x.text.length <= 1500)]);
       checks.push(['revisão factual devolvida no formato esperado', its.every(x => x.factCheck && x.factCheck.status !== 'indeterminado')]);
-      record('1. LinkedIn, 2 versões, com revisão factual', r, its.map(it => `### Versão ${it.machine.variant} (${it.text.length} caracteres)\n\n${it.text}\n\nRevisão factual: ${it.factCheck ? it.factCheck.status + ' ' + JSON.stringify(it.factCheck.alerts) : 'não feita'}\n`).join('\n') + '\nChecagens:\n' + checks.map(([n, ok]) => `- ${ok ? 'OK' : 'FALHOU'}: ${n}`).join('\n') + '\n' + (r.d.warnings || []).map(w => `Aviso: ${w}`).join('\n') + '\n');
+      record('1. LinkedIn, 2 versões, com revisão factual', r, its.map(it => `### Versão ${it.machine.variant} (${it.text.length} caracteres)\n\n${it.text}\n\n${meta(it)}\nRevisão factual: ${it.factCheck ? it.factCheck.status + ' ' + JSON.stringify(it.factCheck.alerts) : 'não feita'}\n`).join('\n') + '\nChecagens:\n' + checks.map(([n, ok]) => `- ${ok ? 'OK' : 'FALHOU'}: ${n}`).join('\n') + '\n' + (r.d.warnings || []).map(w => `Aviso: ${w}`).join('\n') + '\n');
       const bad = checks.filter(([, ok]) => !ok).map(([n]) => n); if (bad.length) throw new Error('checagens que falharam: ' + bad.join('; '));
       return `${its.length} versões, ${its.map(x => x.text.length).join('/')} caracteres`;
     });
@@ -93,7 +94,7 @@ function record(name, r, extra = '') {
       assert.equal(r.status, 200, JSON.stringify(r.d)); const t = r.d.items[0].text;
       const posts = t.split(/\n(?=\s*\d\/5)/).filter(x => /^\s*\d\/5/.test(x));
       const checks = [...textChecks(t), ['5 posts numerados', posts.length === 5], ['cada post com até 280 caracteres', posts.every(p => p.length <= 280)]];
-      record('3. X, thread de 5 posts', r, `${t}\n\nChecagens:\n` + checks.map(([n, ok]) => `- ${ok ? 'OK' : 'FALHOU'}: ${n}`).join('\n') + '\n');
+      record('3. X, thread de 5 posts', r, `${t}\n\n${meta(r.d.items[0])}\nChecagens:\n` + checks.map(([n, ok]) => `- ${ok ? 'OK' : 'FALHOU'}: ${n}`).join('\n') + '\n');
       const bad = checks.filter(([, ok]) => !ok).map(([n]) => n); if (bad.length) throw new Error('checagens que falharam: ' + bad.join('; '));
       return `${posts.length} posts`;
     });
@@ -103,7 +104,7 @@ function record(name, r, extra = '') {
       r = await api('/api/machine/create', { method: 'POST', body: { ...baseCreate, kind: 'video_curto', estrutura: ref, factual: false } });
       assert.equal(r.status, 200, JSON.stringify(r.d)); const t = r.d.items[0].text;
       const checks = [...textChecks(t), ['tem Gancho', /gancho/i.test(t)], ['tem Legenda', /legenda:/i.test(t)], ['não copia 6 palavras seguidas da referência', !overlap(t, ref, 6)]];
-      record('4. Vídeo curto com anti-slop', r, `${t}\n\nChecagens:\n` + checks.map(([n, ok]) => `- ${ok ? 'OK' : 'FALHOU'}: ${n}`).join('\n') + '\n');
+      record('4. Vídeo curto com anti-slop', r, `${t}\n\n${meta(r.d.items[0])}\nChecagens:\n` + checks.map(([n, ok]) => `- ${ok ? 'OK' : 'FALHOU'}: ${n}`).join('\n') + '\n');
       const bad = checks.filter(([, ok]) => !ok).map(([n]) => n); if (bad.length) throw new Error('checagens que falharam: ' + bad.join('; '));
       return 'estrutura aproveitada sem cópia';
     });

@@ -493,7 +493,8 @@ async function openrouterDecision(c,payload){
   if(payload.questions?.requires_external_facts)answers.requires_external_facts={type:'noul',noul:.05};
 
   const dirty=/\[\[VARIANTE|\(Versão [A-C]|ESTÚDIO DE CONTEÚDO/.test(String(payload.state?.draft||'')+String(payload.state?.user_prompt||''));
-  if(payload.questions?.briefing_respected)answers.briefing_respected={type:'noul',noul:dirty?.1:.97};
+  const forced=/FORCAR_REPROVA/.test(String(payload.state?.user_prompt||''));
+  if(payload.questions?.briefing_respected)answers.briefing_respected={type:'noul',noul:dirty?.1:forced?.5:.97};
 
   if(payload.questions?.unsupported_specific_claims)answers.unsupported_specific_claims={type:'noul',noul:.02};
 
@@ -595,7 +596,7 @@ async function generateVerified(c,{kind,goal='',prompt,models,maxTokens=2500,jud
 
  if(!validation.approved){
 
-  const strongest=available[0],canEscalate=strongest&&(!usedGemini||strongest!==out.model);if(!canEscalate||c.ai?.zeroMode||c.ai?.paidFallbackAuthorized===false)throw Object.assign(new Error('O conteúdo precisa de uma camada mais forte, mas a escalada paga não está autorizada. Problemas: '+jevIssueLabels(validation).join(', ')+'.'),{code:'PAID_ESCALATION_APPROVAL',debug:{draft:txt,checks:validation.checks,route:route.class}});
+  const strongest=available[0],canEscalate=strongest&&(!usedGemini||strongest!==out.model);if(!canEscalate||c.ai?.zeroMode||c.ai?.paidFallbackAuthorized===false)throw Object.assign(new Error('O conteúdo precisa de uma camada mais forte, mas a escalada paga não está autorizada. Problemas: '+jevIssueLabels(validation).join(', ')+'.'),{code:'PAID_ESCALATION_APPROVAL',debug:{draft:txt,checks:validation.checks,route:route.class,issues:jevIssueLabels(validation),model:out.model,provider:usedGemini&&!escalated?'gemini':'openrouter',cost:totalCost,usage:out.usage||{}}});
 
   escalated=true;const repair=`${prompt}\n\nRevise completamente o rascunho abaixo. Corrija estes problemas detectados: ${jevIssueLabels(validation).join(', ')}. Não invente informações. Entregue somente a versão final corrigida.\n\nRASCUNHO A REVISAR:\n${txt}`;
 

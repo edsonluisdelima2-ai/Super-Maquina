@@ -13,6 +13,19 @@ async function api(url, opt = {}) {
   let d = {}; try { d = await r.json(); } catch {}
   return { status: r.status, d };
 }
+// ---- unidade: palavras vetadas
+(function vetUnit() {
+  const { parseVetadas, findVetadas } = require('../lib/machine');
+  assert.deepEqual(parseVetadas('Nunca prometer resultado financeiro. Não usar as palavras gargalo, brutal, condutor e arquiteto. Sem preço.'), ['gargalo', 'brutal', 'condutor', 'arquiteto']);
+  assert.deepEqual(parseVetadas('Nunca usar: funil, ticket, bússola'), ['funil', 'ticket', 'bússola']);
+  assert.deepEqual(parseVetadas('Não usar Markdown. Nunca inventar números.'), [], 'não confunde instruções comuns com palavras vetadas');
+  assert.deepEqual(parseVetadas('Palavras vetadas: jornada; mapa'), ['jornada', 'mapa']);
+  assert.deepEqual(findVetadas('O gargalo e os Gargalos, mas arquitetura não.', ['gargalo', 'arquiteto']), ['gargalo']);
+  assert.deepEqual(findVetadas('Uma solução brutalmente simples', ['brutal']), ['brutal'], 'aceita derivação com -mente');
+  assert.deepEqual(findVetadas('gargalos', ['gargalo']), ['gargalo'], 'plural');
+  assert.deepEqual(findVetadas('sem problema algum', ['gargalo']), []);
+})();
+
 // ---- unidade: o que o validador enxerga não pode ter marcadores técnicos
 (function judgeUnit() {
   const { judgePrompt, judgeText, KINDS } = require('../lib/machine');
@@ -54,6 +67,23 @@ async function api(url, opt = {}) {
     assert.equal(r.status, 200, 'retry após resposta vazia: ' + JSON.stringify(r.d)); assert.ok(r.d.items[0].text.length > 20);
     r = await api('/api/costs?clientId=' + cid); assert.equal(r.status, 200); assert.ok(r.d.byKind.unknown > 0, 'a tentativa vazia foi registrada como custo de falha');
     r = await api('/api/state?clientId=' + cid); assert.equal(r.d.audit.filter(a => a.type === 'chat_empty').length, 1, 'resposta vazia registrada na auditoria');
+
+    // 2c. validador reprova e a escalada paga não está autorizada: entrega rascunho sinalizado, não perde o texto
+    r = await api('/api/machine/create', { method: 'POST', body: { clientId: cid, kind: 'linkedin', tema: 'assunto FORCAR_REPROVA da empresa hoje', factual: false } });
+    assert.equal(r.status, 200, 'rascunho sinalizado: ' + JSON.stringify(r.d)); assert.equal(r.d.items[0].quality.status, 'atencao');
+    assert.ok(r.d.items[0].quality.issues.includes('aderência ao briefing')); assert.ok(r.d.warnings.some(w => /validador automático apontou/.test(w)));
+    assert.equal(r.d.items[0].status, 'Rascunho');
+
+    // 2d. palavras vetadas: conferidas no código e reescritas só onde aparecem
+    r = await api('/api/machine/create', { method: 'POST', body: { clientId: cid, kind: 'linkedin', tema: 'delegar sem perder o controle da empresa', vetadas: 'converse, Nada Existe', variantes: 2, factual: false } });
+    assert.equal(r.status, 200, JSON.stringify(r.d));
+    for (const it of r.d.items) { assert.ok(!/converse/i.test(it.text), 'palavra vetada removida: ' + it.text); assert.match(it.text, /reescrito/); assert.deepEqual(it.machine.reescritaVetadas, ['converse']); }
+    assert.ok(!r.d.warnings.some(w => /ainda contém/.test(w)));
+    // restrição cadastrada na empresa também vale
+    await api('/api/clients/' + cid, { method: 'PUT', body: { context: { restricoes: 'Nunca prometer resultado. Não usar as palavras converse, comigo.' } } });
+    r = await api('/api/machine/create', { method: 'POST', body: { clientId: cid, kind: 'x', tema: 'delegar sem perder o controle da empresa', factual: false } });
+    assert.equal(r.status, 200); assert.ok(!/converse|comigo/i.test(r.d.items[0].text), 'restrição da empresa aplicada'); assert.match(r.d.items[0].text, /reescrito/);
+    await api('/api/clients/' + cid, { method: 'PUT', body: { context: { restricoes: '' } } });
 
     // 3. todos os formatos geram e salvam
     for (const k of ids) {

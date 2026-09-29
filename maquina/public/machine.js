@@ -4,7 +4,7 @@
    Carregado depois de quick.js. Estende as funções existentes sem apagá-las. */
 
 let mFormats = null, mKind = 'video_curto', mBusy = false, mErr = '', mWarn = [], mGroup = '', mNotice = {}, mLoading = false;
-let mForm = { tema: '', contexto: '', angulo: '', objetivo: 'autoridade', variantes: 1, tomExtra: '', estrutura: '', subformato: 'thread', factual: true };
+let mForm = { tema: '', contexto: '', angulo: '', objetivo: 'autoridade', variantes: 1, tomExtra: '', estrutura: '', subformato: 'thread', factual: true, vetadas: '' };
 
 if (!navGuided.some(x => x[0] === 'studio')) navGuided.splice(Math.max(1, navGuided.findIndex(x => x[0] === 'create') + 1), 0, ['studio', 'Estúdio']);
 MAX_VIEWS.studio = {
@@ -20,6 +20,7 @@ Object.assign(FIELD_GUIDES, {
   mTom: ['Um ajuste no jeito de falar, além do tom da empresa. É opcional.', 'Mais direto e com um toque de humor', 'Clique em “Gerar e salvar”.'],
   mSub: ['O X tem cinco jeitos de escrever. Escolha o que combina com o tema.', 'Thread de 5 posts', 'Escreva o tema.'],
   mEstrutura: ['Cole a transcrição de um vídeo que deu certo. Eu estudo o ritmo e o arco, sem copiar as frases nem as ideias.', 'A transcrição de um vídeo viral do seu nicho', 'Escreva o seu tema, que é o assunto do texto novo.'],
+  mVetadas: ['Palavras que não podem aparecer no texto, separadas por vírgula. Eu confiro no final e reescrevo só o que for preciso. As regras já cadastradas na empresa também valem.', 'gargalo, funil, ticket', 'Clique em “Gerar e salvar”.'],
   mFactual: ['Depois de escrever, faço uma segunda leitura para apontar nomes, números e datas que possam estar errados. Recomendo sempre que o tema for de empresas, produtos ou notícias.', 'Marcada é o mais seguro', 'Clique em “Gerar e salvar”.'],
   mtext: ['Este é o texto da versão. Pode mudar o que quiser enquanto não estiver na fila.', 'Ajuste a primeira linha', 'Clique em “Salvar edição” e depois em “Aprovar”.']
 });
@@ -58,6 +59,8 @@ function mCard(ct) {
   return `<article class=q-card data-m-card="${ct.id}"><header><div><b>${esc(m.formatLabel)}${m.subformato ? ' · ' + esc((mFormats?.subformatos || {})[m.subformato] || m.subformato) : ''}</b> <span class=q-badge>Versão ${esc(m.variant)}</span> <span class="q-badge ${queued ? 'ok' : mStatusClass(ct.status)}">${esc(status)}</span></div><small data-m-count="${ct.id}">${(ct.text || '').length} caracteres</small></header>
   <textarea data-m-text="${ct.id}" rows=${['blog', 'youtube', 'podcast'].includes(ct.kind) ? 18 : 11} ${queued ? 'disabled' : ''} data-max="mtext">${esc(ct.text || '')}</textarea>
   ${queued ? `<div class=q-note>Este conteúdo está na fila de publicação e não pode ser editado. <button class=btn data-m-unqueue="${ct.id}">Retirar da fila para editar</button></div>` : ''}
+  ${ct.quality && ct.quality.status === 'atencao' ? `<div class="m-fact warn"><b>O validador automático pediu atenção</b><small>Apontou: ${esc((ct.quality.issues || []).join(', ') || 'revisão geral')}. Leia com cuidado e edite antes de aprovar.</small></div>` : ''}
+  ${(ct.machine.vetadasRestantes || []).length ? `<div class="m-fact warn"><b>Ainda contém palavra vetada</b><small>${esc(ct.machine.vetadasRestantes.join(', '))}. Troque à mão antes de aprovar.</small></div>` : ''}
   ${mFactHtml(ct)}
   <div class=actions>${queued ? '' : `<button class=btn data-m-save="${ct.id}">Salvar edição</button>`}<button class=btn data-m-copy="${ct.id}">Copiar texto</button>
   ${files.docx ? `<a class=btn href="${esc(files.docx)}?download=1">Word</a>` : ''}${files.pdf ? `<a class=btn href="${esc(files.pdf)}?download=1">PDF</a>` : ''}${files.html ? `<a class=btn href="${esc(files.html)}?download=1">HTML do artigo</a>` : ''}
@@ -81,6 +84,7 @@ function studioView(c) {
   <div class=row><label class=q-lbl>Versões<select id=mVariantes data-max="mVariantes">${[1, 2, 3].map(n => `<option value=${n} ${Number(f.variantes) === n ? 'selected' : ''}>${n} ${n === 1 ? 'versão (recomendado)' : 'versões'}</option>`).join('')}</select></label>
   <label class=q-lbl>Tom extra <small>(opcional)</small><input id=mTom data-max="mTom" value="${esc(f.tomExtra)}" placeholder="Ex.: mais direto" maxlength=200></label></div>
   <details class=m-slop ${f.estrutura ? 'open' : ''}><summary>Remodelagem anti-slop: estudar a estrutura de um vídeo que deu certo</summary><label class=q-lbl>Transcrição de referência <small>(eu estudo o ritmo e o arco, sem copiar)</small><textarea id=mEstrutura data-max="mEstrutura" rows=5 placeholder="Cole a transcrição. O sistema estuda a estrutura sem copiar.">${esc(f.estrutura)}</textarea></label></details>
+  <label class=q-lbl>Palavras a evitar <small>(opcional; as restrições da empresa já valem)</small><input id=mVetadas data-max="mVetadas" value="${esc(f.vetadas)}" placeholder="Ex.: gargalo, funil, ticket" maxlength=300></label>
   <label class=q-chip><input type=checkbox id=mFactual data-max="mFactual" ${f.factual ? 'checked' : ''}> Revisão factual (segunda leitura que confere números, nomes e datas)</label>
   <div class=actions><button class="btn primary" id=mGo ${mBusy ? 'disabled' : ''}>${mBusy ? 'Criando…' : 'Gerar e salvar'}</button><span class=smallline>Nada é publicado. Você revisa, edita e aprova.</span></div>
   ${mErr ? `<div class=q-error>${esc(mErr)}</div>` : ''}${mWarn.length ? `<div class=q-note>${mWarn.map(esc).join('<br>')}</div>` : ''}</div>
@@ -113,7 +117,7 @@ function wireStudio() {
   const on = (id, key, fn) => { const el = $('#' + id); if (el) el[key] = fn; };
   const bind = (id, prop, cast) => { const el = $('#' + id); if (el) el.oninput = el.onchange = () => { mForm[prop] = cast ? cast(el) : el.value; }; };
   bind('mTema', 'tema'); bind('mContexto', 'contexto'); bind('mAngulo', 'angulo'); bind('mObjetivo', 'objetivo'); bind('mTom', 'tomExtra');
-  bind('mEstrutura', 'estrutura'); bind('mSub', 'subformato'); bind('mVariantes', 'variantes', el => Number(el.value)); bind('mFactual', 'factual', el => el.checked);
+  bind('mEstrutura', 'estrutura'); bind('mVetadas', 'vetadas'); bind('mSub', 'subformato'); bind('mVariantes', 'variantes', el => Number(el.value)); bind('mFactual', 'factual', el => el.checked);
   on('mTema', 'onkeydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('#mGo')?.click(); } });
   on('mGo', 'onclick', () => mCreate());
   $$('[data-m-kind]').forEach(b => b.onclick = () => { mKind = b.dataset.mKind; render(); });

@@ -67,3 +67,18 @@ Mudanças:
 - Testes novos: resposta vazia com nova tentativa, e a IA simulada do Jev agora **reprova** rascunho com marcadores técnicos, o que prova que o validador recebe texto limpo.
 
 **Ainda não sabemos** se essas correções bastam com a IA real. Falta rodar `node tests\real-ai.js` de novo com a versão atualizada. Chamadas que falharam podem ter cobrado centavos na OpenRouter, mesmo com o relatório mostrando US$ 0 (o total do relatório só soma etapas que deram certo).
+
+### Segunda rodada real: dados do relatório e novas correções
+O relatório trouxe o rascunho e as notas do Jev. Achados:
+- **Etapa 1 (LinkedIn):** notas briefing 0,64 (mínimo 0,70), unsupported 0,08, formato 0,90, estilo 0,80. Reprovado por 0,06, e o texto usou "gargalo", palavra vetada da marca.
+- **Etapa 3 (X):** o texto saiu bom e passou no validador. Só falhou na checagem de palavras vetadas ("gargalo").
+- **Etapa 4 (vídeo curto):** estilo 0,65. O validador provavelmente leu os rótulos exigidos pelo formato ("Gancho (0 a 3 s):", "(Visual: ...)") como marcação técnica.
+- A correção da resposta vazia funcionou: a mensagem "sem conteúdo utilizável" não apareceu.
+
+O modelo pequeno (Qwen) ignora regras do tipo "não use", então a checagem passou para o código:
+- **Palavras vetadas:** o Estúdio lê as restrições da empresa (frases como "Não usar as palavras a, b, c" ou "Nunca usar: a, b") e aceita um campo "Palavras a evitar" por pedido. Repete a lista no pedido à IA. Depois de gerar, **confere no código** (inclusive plural e "-mente") e, só nas versões que contêm alguma, pede uma reescrita mínima e confere de novo. Se ainda sobrar, avisa e marca a versão.
+- **Rótulos do formato:** o pedido enviado ao validador agora diz que os rótulos de estrutura e as sugestões visuais fazem parte do formato.
+- **Reprovação do validador:** com o fallback pago desligado (padrão de cliente novo), o texto já pago não é mais jogado fora. Ele é salvo como **rascunho sinalizado** ("O validador automático pediu atenção", com os motivos), sem publicar nada. Isto muda uma regra da r3 dentro do Estúdio: as outras telas continuam falhando nesse caso.
+- Testes novos: parsing de restrições, plural e derivados, reescrita, restrição cadastrada na empresa, rascunho sinalizado.
+
+**Ainda não confirmado com IA real:** que o validador aceite os vídeos curtos com os rótulos, e que a reescrita mantenha o texto bom. Falta a terceira rodada.
