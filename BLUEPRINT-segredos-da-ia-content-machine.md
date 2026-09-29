@@ -11,9 +11,12 @@ Legenda: **[V]** visto nos prints · **[I]** inferido (confirmar com código/pri
 | HOME | [V] completa |
 | CRIAR | [V] completa |
 | COACH | [V] aba "Analisar"; aba "Histórico" [?] |
-| GUIAS, EDIÇÃO, HISTÓRICO, CALENDÁRIO, DASHBOARD, BACKUP, APIS | [I] só pelo nome. Faltam prints |
+| GUIAS | [V] sub-aba "Capa" completa; sub-aba "Criar Ebook" [?] |
+| EDIÇÃO | [V] estado vazio; tela com guia gerado [?] |
+| HISTÓRICO | [V] estado vazio (layout completo); card de conteúdo [?] |
+| CALENDÁRIO, DASHBOARD, BACKUP, APIS | [I] só pelo nome. Faltam prints |
 
-O código-fonte (JS, prompts, chamadas de IA) não é acessível pela página pública; tudo abaixo sobre lógica interna é [I].
+Pista técnica [V]: o título da aba do navegador é **`maquina-virais-ib.jsx`** → o artefato é **um único arquivo React (JSX)**. O código-fonte (prompts, chamadas de IA) não é acessível pela página pública; lógica interna é [I].
 
 ## 1. Identidade [V]
 - Nome: **SEGREDOS DA IA · CONTENT MACHINE**.
@@ -77,16 +80,50 @@ Descrição: cola conteúdo bruto (ideia, rascunho, transcrição, print) + link
 - Campo CONTEÚDO BRUTO (textarea, contador de palavras, placeholder com exemplo de vídeo sobre agente de IA no WhatsApp), botão **ANALISAR CONTEÚDO**.
 - Saída [I]: diagnóstico + direção tática (ajustes de gancho, ângulo, dados verificados a partir dos links, próximos passos), salva no Histórico do Coach. Possivelmente com botão "enviar para CRIAR".
 
-## 6. Abas ainda não vistas [I]
-- **GUIAS**: módulo dedicado a Ebooks/PDFs (o card "Guias" em CRIAR diz "módulo dedicado") + provável biblioteca de playbooks.
-- **EDIÇÃO**: exibe o Guia de Edição gerado (cortes, sons, legendas, biblioteca Final Cut casada com as falas) e os assets/links salvos para baixar e cortar.
-- **HISTÓRICO**: todos os conteúdos gerados (variantes), busca/filtro por formato/status, reabrir, duplicar, agendar.
+## 6. GUIAS [V]
+Barra secundária própria: marcador verde "SEGREDOS DA IA" + sub-abas **CAPA** | **CRIAR EBOOK** (esta última [?]).
+Fluxo: gerar capa (aqui) → gerar a arte fora, no **ChatGPT Image 2.0**, com o JSON → anexar a capa pronta em Criar Ebook.
+
+### 6.1 Sub-aba CAPA — "Capa de Ebook. 3 variações."
+Descrição: o usuário descreve o tema; a IA define eyebrow, título, palavra destaque, selo de ferramenta e modo visual (capa retrato, neon lime); o usuário ajusta, copia o JSON da variação escolhida e gera a arte no ChatGPT com a foto. Formato **1080x1440 (3:4)**.
+- **Briefing da capa** (textarea: tema, mensagem-chave, quem/o que aparece na foto) + botão **"Definir capa com IA"** (preenche os campos abaixo).
+- **Definições da capa (editáveis):**
+  | Campo | Exemplo |
+  |---|---|
+  | Eyebrow (lime, acima do título) | GUIA PRÁTICO |
+  | Título principal (caixa alta) | GUIA SCRAPING AI DESIGN |
+  | Palavra destaque (neon lime no título) | AI |
+  | Selo de ferramenta (pill com engrenagem) | USANDO CHATGPT IMAGE 2.0 |
+  | Destaque/linha do selo (1ª ferramenta) | CHATGPT IMAGE 2.0 |
+  | **Modo visual do retrato** (4 botões) | CUTOUT · CENA · MOCKUP · RENDER |
+- **Fixos da marca:** "© 2026" e "@igorbrasil" no topo; linha "COMUNIDADE SEGREDOS DA IA" no rodapé; a capa **sempre usa imagem — ABSTRATO não é permitido**.
+- **Seletor de variação** com preview ao vivo: **A · Limpa** (leve) · **B · Interface** (médio) · **C · HUD Técnico** (denso). O preview mostra título, selo, rodapé; "preview aproximado — o JSON é a referência final para o gerador de imagem".
+- **Prompts JSON prontos:** 3 caixas (A/B/C) cada uma com botão **copiar**. Estrutura do JSON [V]:
+  `formato: "capa_ebook_editorial"`, `dimensao: "1080x1440"`, `proporcao: "3:4"`, `USAR_IMAGEM_ANEXADA: true`, `tratamento_imagem` (retrato protagonista full bleed, cores naturais 100% preservadas, brilho neon lime sutil em UM detalhe focal, fundo preto com vinheta, sem duotone/filtro/overlay na pele), `paleta {bg #000000, destaque #b8ff1a, texto #FFFFFF, apoio #9a9a9a}`, `tipografia {titulo Bebas Neue, corpo Inter Tight, rotulo JetBrains Mono}`, `estilo_referencia`, `modo_visual`, `densidade_visual (LEVE/MEDIO/DENSO)`, `overlay_interface (true na B)`, `textos {copyright, handle, eyebrow, titulo_principal, palavra_destaque, selo_ferramenta, selo_destaque, comunidade, comunidade_destaque}`, `instrucao_final` (texto em inglês: usar imagem anexada como retrato, full bleed, mockup translúcido de chat à esquerda na B, cantos/rodapé etc.).
+  Observação: quando os campos ainda não foram definidos, `titulo_principal` e `palavra_destaque` saem vazios ("") no JSON e o preview mostra "SEU TITULO AQUI".
+- Botão final **"JSON pronto. Ir para Criar Ebook"** + dica "Gere a arte no ChatGPT com o JSON, depois anexe a capa na aba Criar Ebook".
+- Sub-aba **CRIAR EBOOK** [I]: recebe tema + capa anexada, gera o ebook/PDF (estrutura, capítulos, diagramação).
+
+## 7. EDIÇÃO — "Edição de Vídeo" [V]
+Descrição: "O guia de edição dos seus vídeos, focado pra você usar no Final Cut. N vídeos com guia."
+- Estado vazio: ícone de câmera, "Nenhum vídeo com guia de edição ainda. Pra gerar o guia, vá em CRIAR, escolha vídeo curto ou youtube, e ligue a opção GERAR GUIA DE EDIÇÃO antes de gerar." + botão **CRIAR VÍDEO** (leva a CRIAR).
+- Regra: guia só existe para **Vídeo Curto** e **YouTube**.
+- Com dados [I]: lista de vídeos com guia; cada um abre cortes, sons, legendas, biblioteca Final Cut amarrada às falas, assets/links salvos.
+
+## 8. HISTÓRICO [V]
+Layout de duas colunas.
+- **Barra lateral "listas"** (com contador por item): TODOS · VÍDEOS CURTOS · YOUTUBE · CARROSSÉIS · LINKEDIN · X / TWITTER · BLOG · PODCAST · COMUNIDADE + **"+ NOVA LISTA"** (listas personalizadas).
+- **Status** (filtro): **ATIVOS** (padrão) · RASCUNHOS · POSTADOS · ARQUIVADOS.
+- Área principal: título da lista, "N resultados · status: ativos", botão **+ NOVO CONTEÚDO**; vazio = "Nenhum conteúdo aqui ainda." + **CRIAR PRIMEIRO**.
+- Observações: não há lista para Vídeo Repost, News Diário nem Guias (podem cair em outra lista); o status "ativos/postados/arquivados" reforça o ciclo de vida do conteúdo. Card de item, ações (abrir, duplicar, agendar, arquivar, marcar postado) [I].
+
+## 9. Abas ainda não vistas [I]
 - **CALENDÁRIO**: agendamento; alimenta "Próximas publicações" e o contador de agendados.
 - **DASHBOARD**: produção por formato, publicados vs agendados, cadência.
 - **BACKUP**: exportar/importar JSON (estado local).
 - **APIS**: chaves de provedores de IA/busca/transcrição e integrações (RSS, Whisper etc.).
 
-## 7. Modelo de dados [I]
+## 10. Modelo de dados [I]
 ```
 Conteudo   { id, formato, tema, contexto, assets[], angulo, objetivo, tomExtra,
              antiSlopRef, flags{guiaEdicao, revisaoFactual},
@@ -99,18 +136,22 @@ Config       { apiKeys{}, biblioteca FinalCut, preferencias }
 ```
 Derivados: ativos, agendados, publicados (Home); "precisa de ação" = regras (agendamento vencido, rascunho parado, API sem chave, backup antigo).
 
-## 8. Arquitetura provável [I]
-- Artefato do Claude (SPA, uma página), roteamento por abas em estado.
+## 11. Arquitetura provável [I]
+- Artefato do Claude **[V] em um único arquivo `maquina-virais-ib.jsx` (React)**, SPA com roteamento por abas em estado; sub-abas em Guias e listas/status em Histórico.
+- A arte da capa/ebook **não é gerada no app**: o app monta o JSON e o usuário gera a imagem no ChatGPT Image 2.0 [V].
 - Persistência local (localStorage/IndexedDB) → por isso existe BACKUP.
 - Geração por LLM (chamada do artefato ao Claude ou chaves em APIS); busca online e leitura de links exigem ferramenta de web/RSS.
 - Publicação provavelmente só registra/agenda; não posta nas redes.
 
-## 9. Riscos e melhorias
+## 12. Riscos e melhorias
 1. Inconsistência "3 variantes" (subtítulo) × "1 variante" (padrão).
 2. Dados só no navegador → lembrete automático de backup em "Precisa de ação".
 3. Chaves de API no cliente: não compartilhar o artefato com chaves salvas.
 4. Revisão factual desligada por padrão, mas recomendada para notícias → considerar ligar automaticamente para formatos factuais (News, LinkedIn, X, Blog, YouTube).
 5. Pacote Full sem card próprio nos prints → conferir onde é acionado.
+6. Handle `@igorbrasil` fixo na capa e nome do arquivo "ib" sugerem marca pessoal de outro criador/versão; no Núcleo de Líderes trocar por handle próprio (deixar configurável em APIS/Config).
+7. Geração de imagem manual (copiar JSON → ChatGPT → anexar) é o maior atrito; automatizar via API de imagem em APIS.
+8. Histórico não tem lista para Vídeo Repost, News Diário e Guias.
 
-## 10. Para fechar 100%
-Faltam prints (ou o código) de: **Guias, Edição, Histórico, Calendário, Dashboard, Backup, APIs**, do sub-menu **Histórico do Coach**, das opções dos selects **Objetivo/Variantes**, e do resultado de uma geração e de uma análise do Coach. Com isso removo todos os [I]/[?].
+## 13. Para fechar 100%
+Ainda faltam prints (ou o código) de: **Calendário, Dashboard, Backup, APIs**, sub-aba **Criar Ebook**, **Histórico do Coach**, opções dos selects **Objetivo/Variantes**, um **resultado de geração** (card de conteúdo com variantes), um **resultado do Coach**, um **guia de edição gerado** e o **sino de notificações** aberto. Com isso removo todos os [I]/[?].
