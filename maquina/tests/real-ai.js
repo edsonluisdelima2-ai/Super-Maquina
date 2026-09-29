@@ -29,13 +29,22 @@ function overlap(a, b, n = 6) { const A = words(a), B = words(b), S = new Set();
 const meta = it => `Validador: ${it.quality && it.quality.status === 'atencao' ? 'PEDIU ATENÇÃO (' + (it.quality.issues || []).join(', ') + ' · notas ' + JSON.stringify((it.quality.jev || {}).checks || {}) + ')' : 'aprovado'}. Palavras vetadas reescritas: ${(it.machine.reescritaVetadas || []).join(', ') || 'nenhuma'}. Ainda vetadas: ${(it.machine.vetadasRestantes || []).join(', ') || 'nenhuma'}.`;
 function textChecks(t) {
   const c = [];
-  c.push(['sem Markdown cru', !/[*`]|^\s*#/m.test(t)]);
+  // hashtag no início da linha (#lideranca) é legítima; só cabeçalho Markdown real (# Título), negrito e crase contam
+  c.push(['sem Markdown cru', !/\*\*|`|^\s{0,3}#{1,6}\s/m.test(t)]);
   c.push(['sem palavras vetadas da marca', !FORBIDDEN.some(w => t.toLowerCase().includes(w))]);
   c.push(['sem dica de abordagem vazada', !/\(Versão [A-C]/.test(t)]);
   c.push(['sem "como IA"', !/como (uma )?ia\b|modelo de linguagem/i.test(t)]);
   return c;
 }
+const T0 = Date.now(), STEP_MS = Number(process.env.REAL_AI_STEP_TIMEOUT_MS || 360000);
+const say = m => console.log(`[${Math.round((Date.now() - T0) / 1000)}s] ${m}`);
 async function step(name, fn) {
+  say('Iniciando: ' + name + ' (pode levar 1 a 3 minutos; se aparecer "ainda aguardando", está funcionando)');
+  const beat = setInterval(() => say('  ainda aguardando a IA…'), 20000);
+  try { return await stepInner(name, () => Promise.race([fn(), new Promise((_, rej) => setTimeout(() => rej(new Error(`tempo esgotado: a etapa passou de ${Math.round(STEP_MS / 1000)} segundos`)), STEP_MS))])); }
+  finally { clearInterval(beat); say('Fim: ' + name + ' → ' + (results.at(-1) || [])[1]); }
+}
+async function stepInner(name, fn) {
   if (spent >= MAX) { results.push([name, 'PULADO', `teto de US$ ${MAX} atingido (gasto US$ ${spent.toFixed(4)})`]); report.push(`## ${name}\nPulado: teto de gasto atingido.\n`); return; }
   try { const notes = await fn(); results.push([name, 'OK', notes || '']); }
   catch (e) { results.push([name, 'FALHOU', e.message]); report.push(`## ${name}\n**Falhou:** ${e.message}\n`); }

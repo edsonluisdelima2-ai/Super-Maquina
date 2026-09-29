@@ -82,3 +82,21 @@ O modelo pequeno (Qwen) ignora regras do tipo "não use", então a checagem pass
 - Testes novos: parsing de restrições, plural e derivados, reescrita, restrição cadastrada na empresa, rascunho sinalizado.
 
 **Ainda não confirmado com IA real:** que o validador aceite os vídeos curtos com os rótulos, e que a reescrita mantenha o texto bom. Falta a terceira rodada.
+
+### Terceira rodada real (29/09/2026): 3 de 4 etapas OK
+Custo real medido: US$ 0,02443 (teto US$ 0,10). O teste **não travou**: ele só mostrava a tabela no fim. Agora imprime andamento e tem limite de 6 minutos por etapa.
+- **2. Revisão factual pega número inventado: OK.** Apontou o "73%" e "Harvard 2024" plantados.
+- **3. Thread do X: OK.** 5 posts, sem palavras vetadas (o filtro de código funcionou).
+- **4. Vídeo curto com anti-slop: OK.** Estrutura aproveitada sem copiar a referência; o validador aceitou os rótulos.
+- **1. LinkedIn em 2 versões: FALHOU nas checagens do teste**, com o texto gerado e salvo:
+  - "sem Markdown cru" (versões A e B): **falso positivo do meu teste**, que tratava hashtag no início de linha (#Liderança) como Markdown. Corrigido no teste.
+  - "revisão factual devolvida no formato esperado": **achado real, ainda não investigado**. Pelo menos uma versão voltou com revisão "indeterminada" (a IA não seguiu o formato STATUS/ALERTA). Precisa do relatório `.md` da rodada para ver a resposta.
+
+### Também nesta rodada
+- Toda chamada de IA (chat, Jev, Gemini, saldo) agora tem **limite de tempo** (150 s, ajustável por `SMC_AI_TIMEOUT_MS`). Antes, uma resposta travada deixava o pedido pendurado para sempre e bloqueava novas criações da empresa. É uma correção do motor da r3.
+- Novo `tests/openrouter-stub.js`: sobe uma OpenRouter simulada e prova o caminho de IA não simulado, o retry de resposta vazia (segunda chamada com raciocínio desligado e 50% mais tokens), o limite de tempo e que a empresa continua utilizável depois.
+
+### Pendências para retomar
+1. Ler o relatório `real-ai-2026-09-29T04-44-00-376Z.md` e corrigir o formato da revisão factual (provável: aceitar variações de "STATUS" ou pedir a resposta de outro jeito).
+2. Ler os textos do LinkedIn/X/vídeo com os olhos da marca (voz, tom, se algo soa genérico ou inventado).
+3. Só então fase 2 (Coach Content).

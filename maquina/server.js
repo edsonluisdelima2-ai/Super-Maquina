@@ -366,7 +366,7 @@ async function callGemini(c,{system='',prompt='',maxTokens=3500}){
 
  const model=String(c.ai?.geminiModel||'gemini-3.5-flash-lite');
 
- const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},body:JSON.stringify({contents:[{role:'user',parts:[{text:[system,prompt].filter(Boolean).join('\n\n')}]}],generationConfig:{maxOutputTokens:maxTokens}})});
+ const r=await aiFetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},body:JSON.stringify({contents:[{role:'user',parts:[{text:[system,prompt].filter(Boolean).join('\n\n')}]}],generationConfig:{maxOutputTokens:maxTokens}})});
 
  const t=await r.text();let d;try{d=JSON.parse(t)}catch{d={raw:t}};if(!r.ok){const e=new Error(d?.error?.message||`Gemini ${r.status}`);e.status=r.status;e.code=r.status===429?'GEMINI_FREE_LIMIT':'GEMINI_ERROR';throw e}
 
@@ -480,7 +480,7 @@ function keyFor(c){return dec(c?.ai?.keyEnc)||dec(state.settings.openrouterKeyEn
 
 function mgmtKeyFor(c){return dec(c?.ai?.mgmtKeyEnc)||keyFor(c)}
 
-async function openrouter(c,pathname,opts={}){if(process.env.SMC_FAKE_OPENROUTER==='1'){if(pathname==='/chat/completions'){const req=JSON.parse(opts.body||'{}'),prompt=String(req.messages?.at(-1)?.content||'');if(/FORCAR_VAZIO/.test(prompt)&&!req.reasoning)return{choices:[{message:{content:''},finish_reason:'length'}],usage:{cost:0.001,completion_tokens:2500}};const content=fakeContent(prompt);return{choices:[{message:{content}}],usage:{cost:0.002,input_tokens:100,output_tokens:40}}}throw new Error('Rota fake não implementada.')}const key=keyFor(c);if(!key)throw Object.assign(new Error('Chave OpenRouter não configurada para esta empresa.'),{code:'NO_KEY'});const r=await fetch('https://openrouter.ai/api/v1'+pathname,{...opts,headers:{Authorization:'Bearer '+key,'Content-Type':'application/json','HTTP-Referer':BASE_URL,'X-OpenRouter-Title':state.settings.platformName,...(opts.headers||{})}});const t=await r.text();let d;try{d=JSON.parse(t)}catch{d={raw:t}};if(!r.ok)throw Object.assign(new Error(d?.error?.message||d?.message||`OpenRouter ${r.status}`),{provider:d,status:r.status});return d}
+async function openrouter(c,pathname,opts={}){if(process.env.SMC_FAKE_OPENROUTER==='1'){if(pathname==='/chat/completions'){const req=JSON.parse(opts.body||'{}'),prompt=String(req.messages?.at(-1)?.content||'');if(/FORCAR_VAZIO/.test(prompt)&&!req.reasoning)return{choices:[{message:{content:''},finish_reason:'length'}],usage:{cost:0.001,completion_tokens:2500}};const content=fakeContent(prompt);return{choices:[{message:{content}}],usage:{cost:0.002,input_tokens:100,output_tokens:40}}}throw new Error('Rota fake não implementada.')}const key=keyFor(c);if(!key)throw Object.assign(new Error('Chave OpenRouter não configurada para esta empresa.'),{code:'NO_KEY'});const r=await aiFetch(OR_BASE+'/v1'+pathname,{...opts,headers:{Authorization:'Bearer '+key,'Content-Type':'application/json','HTTP-Referer':BASE_URL,'X-OpenRouter-Title':state.settings.platformName,...(opts.headers||{})}});const t=await r.text();let d;try{d=JSON.parse(t)}catch{d={raw:t}};if(!r.ok)throw Object.assign(new Error(d?.error?.message||d?.message||`OpenRouter ${r.status}`),{provider:d,status:r.status});return d}
 
 async function openrouterDecision(c,payload){
 
@@ -508,7 +508,7 @@ async function openrouterDecision(c,payload){
 
  const key=keyFor(c);if(!key)throw Object.assign(new Error('Chave OpenRouter não configurada para esta empresa.'),{code:'NO_KEY'});
 
- const r=await fetch('https://openrouter.ai/api/alpha/decisions',{method:'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json','HTTP-Referer':BASE_URL,'X-OpenRouter-Title':state.settings.platformName},body:JSON.stringify(payload)});
+ const r=await aiFetch(OR_BASE+'/alpha/decisions',{method:'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json','HTTP-Referer':BASE_URL,'X-OpenRouter-Title':state.settings.platformName},body:JSON.stringify(payload)});
 
  const t=await r.text();let d;try{d=JSON.parse(t)}catch{d={raw:t}};if(!r.ok)throw Object.assign(new Error(d?.error?.message||d?.message||`OpenRouter Decisions ${r.status}`),{provider:d,status:r.status});return d;
 
@@ -518,6 +518,10 @@ function extractText(message){if(!message)return'';if(typeof message.content==='
 
 async function callChat(c,models,messages,max_tokens=2500){let last;for(const model of models){for(const attempt of [0,1]){try{const req={model,messages,max_tokens:attempt?Math.round(max_tokens*1.5):max_tokens,temperature:.55};if(attempt)req.reasoning={enabled:false};const d=await openrouter(c,'/chat/completions',{method:'POST',body:JSON.stringify(req)});const ch=d?.choices?.[0],text=extractText(ch?.message),cost=Number(d?.usage?.cost||0);if(!text){const debug={model,attempt:attempt+1,finishReason:ch?.finish_reason||'',completionTokens:d?.usage?.completion_tokens??null,reasoningChars:String(ch?.message?.reasoning||'').length};last=Object.assign(new Error(`O motor respondeu sem conteúdo utilizável (modelo ${model}, término: ${debug.finishReason||'?'}, raciocínio interno: ${debug.reasoningChars} caracteres).`),{providerCost:cost,model,debug});recordProviderCost(c,'unknown',cost,model,'failed',{reason:'empty',attempt:attempt+1,finishReason:debug.finishReason});audit('chat_empty',JSON.stringify(debug));continue}return{d,model,text,cost}}catch(e){last=e;break}}}throw last||new Error('Falha de IA')}
 
+const OR_BASE=(process.env.SMC_OPENROUTER_BASE||'https://openrouter.ai/api').replace(/\/$/,'');
+const AI_TIMEOUT=Math.max(100,Number(process.env.SMC_AI_TIMEOUT_MS||150000));
+/* Toda chamada de IA tem limite de tempo. Sem isso, uma resposta travada deixava o pedido pendurado para sempre e bloqueava novas criações da empresa. */
+async function aiFetch(url,opts={}){try{return await fetch(url,{signal:AbortSignal.timeout(AI_TIMEOUT),...opts})}catch(e){if(e&&(e.name==='TimeoutError'||e.name==='AbortError'))throw Object.assign(new Error(`A IA demorou mais de ${Math.max(1,Math.round(AI_TIMEOUT/1000))} segundo(s) para responder. Nenhum crédito interno foi consumido. Tente de novo.`),{code:'AI_TIMEOUT'});throw e}}
 function uniqueModels(models){return [...new Set((models||[]).filter(Boolean))]}
 
 function routeModels(models,route){const list=uniqueModels(models);if(list.length<2)return list;return route?.class==='economico'&&Number(route.confidence||0)>=JEV_ROUTE_CONFIDENCE?[...list].reverse():list}
@@ -610,7 +614,7 @@ async function generateVerified(c,{kind,goal='',prompt,models,maxTokens=2500,jud
 
 }
 
-async function normalizedCredits(c){if(process.env.SMC_FAKE_OPENROUTER==='1')return{configured:true,totalCredits:10,totalUsage:2.538740429,available:7.461259571,rawUpdatedAt:new Date().toISOString()};const key=mgmtKeyFor(c);if(!key)return{configured:false,totalCredits:null,totalUsage:null,available:null};const r=await fetch('https://openrouter.ai/api/v1/credits',{headers:{Authorization:'Bearer '+key}}),d=await r.json();if(!r.ok)throw new Error(d?.error?.message||'Não foi possível consultar o saldo.');const x=d.data||d,totalCredits=numOrNull(x.total_credits??x.credits),totalUsage=numOrNull(x.total_usage??x.usage),direct=numOrNull(x.balance??x.limit_remaining);const available=totalCredits!=null&&totalUsage!=null?Math.max(0,totalCredits-totalUsage):direct;return{configured:true,totalCredits,totalUsage,available,rawUpdatedAt:new Date().toISOString()}}
+async function normalizedCredits(c){if(process.env.SMC_FAKE_OPENROUTER==='1')return{configured:true,totalCredits:10,totalUsage:2.538740429,available:7.461259571,rawUpdatedAt:new Date().toISOString()};const key=mgmtKeyFor(c);if(!key)return{configured:false,totalCredits:null,totalUsage:null,available:null};const r=await aiFetch(OR_BASE+'/v1/credits',{headers:{Authorization:'Bearer '+key}}),d=await r.json();if(!r.ok)throw new Error(d?.error?.message||'Não foi possível consultar o saldo.');const x=d.data||d,totalCredits=numOrNull(x.total_credits??x.credits),totalUsage=numOrNull(x.total_usage??x.usage),direct=numOrNull(x.balance??x.limit_remaining);const available=totalCredits!=null&&totalUsage!=null?Math.max(0,totalCredits-totalUsage):direct;return{configured:true,totalCredits,totalUsage,available,rawUpdatedAt:new Date().toISOString()}}
 
 function numOrNull(v){const n=Number(v);return Number.isFinite(n)?n:null}
 
